@@ -579,6 +579,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let cerrarDetalle = () => {};
     let producto = null;
     let color = 0;
+    let foto = 0; // foto activa de la galería (productos con fotos propias)
     let abiertas = null; // ids de las secciones desplegadas (null = todavía sin decidir para este producto)
 
     const el = (tag, attrs = {}, ...hijos) => {
@@ -678,8 +679,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const pr = precioDe(p);
       const media = dialogo.querySelector(".product-dialog-media");
       media.replaceChildren();
-      if (cs.length) {
-        media.append(el("img", { src: cs[color].imagen, alt: p.categoria === "Accesorios" ? p.nombre : p.nombre + " color " + cs[color].nombre.toLowerCase(), width: "728", height: "666", decoding: "async" }));
+      const fotos = fotosDe(p);
+      if (fotos.length) {
+        media.append(el("img", { src: fotos[foto] || fotos[0], alt: p.nombre, width: "728", height: "666", loading: "lazy", decoding: "async" }));
+        if (fotos.length > 1) {
+          media.append(el("div", { class: "product-dialog-thumbs", role: "group", "aria-label": "Fotos del producto" }, fotos.map((u, i) =>
+            el("button", { type: "button", class: "pd-thumb" + (i === foto ? " is-active" : ""), "aria-label": "Foto " + (i + 1) + " de " + fotos.length, "aria-pressed": String(i === foto), "data-foto": String(i) },
+              el("img", { src: u, alt: "", width: "56", height: "56", loading: "lazy", decoding: "async" })))));
+        }
+      } else if (cs.length && colorImg(p, color)) {
+        media.append(el("img", { src: colorImg(p, color), alt: p.categoria === "Accesorios" ? p.nombre : p.nombre + " color " + cs[color].nombre.toLowerCase(), width: "728", height: "666", decoding: "async" }));
       } else {
         const ph = el("div", { class: "product-card-media-placeholder" });
         ph.innerHTML = (p.categoria === "iPhone" ? ICONO_TELEFONO : ICONO_CAJA) + "<span>Foto próximamente</span>";
@@ -739,6 +748,13 @@ document.addEventListener("DOMContentLoaded", () => {
         pintar();
         dialogo.querySelector('.color-swatch[aria-pressed="true"]').focus(); // el foco no se pierde al redibujar
       });
+      dialogo.addEventListener("click", (e) => { // miniaturas de la galería
+        const th = e.target.closest(".pd-thumb");
+        if (!th) return;
+        foto = Number(th.dataset.foto);
+        pintar();
+        dialogo.querySelector('.pd-thumb[aria-pressed="true"]').focus();
+      });
       dialogo.addEventListener("click", (e) => { // acordeón: varias secciones pueden quedar abiertas
         const btn = e.target.closest(".pd-seccion-btn");
         if (!btn) return;
@@ -768,6 +784,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!dialogo) crear();
       producto = p;
       color = 0;
+      foto = 0;
       abiertas = null;
       pintar();
       if (!dialogo.open) {
@@ -821,13 +838,25 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof ACCESORIOS_BASE === "undefined") return [];
     const usados = new Set();
     // cuarto valor opcional de cada fila = ruta de la foto (WebP con fondo transparente)
-    return ACCESORIOS_BASE.map(([subcategoria, nombre, precioNum, foto]) => {
+    return ACCESORIOS_BASE.map(([subcategoria, nombre, precioNum, foto, fotos, regalo]) => {
       const base = normalizar(nombre).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       let id = base;
       for (let n = 2; usados.has(id); n++) id = base + "-" + n;
       usados.add(id);
-      return { id, categoria: "Accesorios", subcategoria, nombre, variante: "", especificacion: "", precioNum: Number.isFinite(precioNum) ? precioNum : null, colores: foto ? [{ nombre: "Único", hex: "#FFFFFF", imagen: foto }] : [], disponible: true };
+      return { id, categoria: "Accesorios", subcategoria, nombre, variante: "", especificacion: "", precioNum: Number.isFinite(precioNum) ? precioNum : null, colores: foto ? [{ nombre: "Único", hex: "#FFFFFF", imagen: foto }] : [], disponible: true, fotos: Array.isArray(fotos) ? fotos : [], ...(typeof regalo === "boolean" ? { regalo } : {}) };
     });
+  }
+
+  // Fotos propias (Supabase): mandan con 0 o 1 color, o con 2+ colores donde ninguno tiene imagen (galería; los colores no cambian la foto).
+  // productos-api.js ya las deja con la principal (o la primera) al frente.
+  const fotosDe = (p) => { const cs = p.colores || []; return Array.isArray(p.fotos) && p.fotos.length && (cs.length < 2 || !cs.some((c) => c && c.imagen)) ? p.fotos : []; };
+  // Imagen de un color: la suya; si no tiene, la foto principal; si tampoco hay, la de otro color. Sin colores: "" (se usa fotosDe).
+  function colorImg(p, i) {
+    const cs = p.colores || [];
+    if (!cs.length) return "";
+    const c = cs[i] || cs[0];
+    if (c && c.imagen) return c.imagen;
+    return (Array.isArray(p.fotos) && p.fotos[0]) || (cs.find((x) => x && x.imagen) || {}).imagen || "";
   }
 
   function escAttr(t) { return String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;"); }
@@ -916,11 +945,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // eager: carga inmediata (primera pantalla); alta: además prioridad alta (solo la candidata a LCP)
   function renderProductCard(p, eager = false, alta = false) {
     const colores = p.colores || [];
+    const fotosCard = fotosDe(p), imgCard = colorImg(p, 0);
     // Un solo color no se ofrece como elección: los puntos de color aparecen desde 2.
     const swatches = colores.length > 1
       ? `<div class="color-swatches" role="group" aria-label="Colores disponibles">
           ${colores.map((color, i) => `<button type="button" class="color-swatch${i === 0 ? " is-active" : ""}"
-            style="--swatch: ${color.hex}" data-img="${color.imagen}" data-alt="${escAttr(p.nombre + " color " + color.nombre.toLowerCase())}"
+            style="--swatch: ${color.hex}" data-img="${escAttr(colorImg(p, i))}" data-alt="${escAttr(p.nombre + " color " + color.nombre.toLowerCase())}"
             aria-label="${escAttr(color.nombre)}" aria-pressed="${i === 0}" title="${escAttr(color.nombre)}"></button>`).join("")}
         </div>`
       : `<div class="color-swatches-slot" aria-hidden="true"></div>`; // reserva el alto de los puntos: las fotos de todas las cards miden igual
@@ -954,10 +984,12 @@ document.addEventListener("DOMContentLoaded", () => {
           <h3 class="product-card-name">${p.nombre}</h3>
           ${p.variante ? `<p class="product-card-variant">${p.variante}</p>` : `<p class="product-card-variant product-card-variant--vacio" aria-hidden="true">&nbsp;</p>`}
         </div>
-        <div class="product-card-media${colores.length ? "" : " product-card-media--vacio"}">
+        <div class="product-card-media${imgCard || fotosCard.length ? "" : " product-card-media--vacio"}">
           ${usado ? `<span class="product-card-tag">Usado${bat !== null ? " · " + bat + "%" : ""}</span>` : ""}
-          ${colores.length
-            ? `<img src="${colores[0].imagen}" alt="${escAttr(esAccesorio ? p.nombre : p.nombre + " color " + colores[0].nombre.toLowerCase())}" width="728" height="666" loading="${eager ? "eager" : "lazy"}"${alta ? " fetchpriority=\"high\"" : ""} decoding="async">`
+          ${fotosCard.length
+            ? `<img src="${escAttr(fotosCard[0])}" alt="${escAttr(p.nombre)}" width="728" height="666" loading="${eager ? "eager" : "lazy"}"${alta ? " fetchpriority=\"high\"" : ""} decoding="async">`
+            : imgCard
+            ? `<img src="${escAttr(imgCard)}" alt="${escAttr(esAccesorio ? p.nombre : p.nombre + " color " + colores[0].nombre.toLowerCase())}" width="728" height="666" loading="${eager ? "eager" : "lazy"}"${alta ? " fetchpriority=\"high\"" : ""} decoding="async">`
             : `<div class="product-card-media-placeholder">${p.categoria === "iPhone" ? ICONO_TELEFONO : ICONO_CAJA}<span>Foto próximamente</span></div>`
           }
           ${regalosCard.length ? giftOverlayHTML(regalosCard) : ""}

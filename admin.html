@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Panel · Tecnolab</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=45">
+  <link rel="stylesheet" href="css/admin.css?v=45">
+</head>
+<body class="adm">
+  <p id="adm-toast" class="adm-toast" role="status" aria-live="polite" hidden></p>
+
+  <!-- LOGIN: es lo único visible sin sesión -->
+  <main id="adm-login" class="adm-login" hidden>
+    <form id="adm-login-form" class="adm-card adm-login-card" novalidate>
+      <h1 class="adm-h1">Panel de productos</h1>
+      <label class="adm-label" for="adm-email">Email</label>
+      <input class="adm-input" id="adm-email" type="email" autocomplete="username" inputmode="email" required>
+      <label class="adm-label" for="adm-pass">Contraseña</label>
+      <input class="adm-input" id="adm-pass" type="password" autocomplete="current-password" required>
+      <p id="adm-login-error" class="adm-error" role="alert" hidden></p>
+      <button class="adm-btn adm-btn--primary" id="adm-login-btn" type="submit">Entrar</button>
+    </form>
+  </main>
+
+  <!-- APP -->
+  <div id="adm-app" hidden>
+    <header class="adm-top">
+      <h1 class="adm-top-title">Productos</h1>
+      <button type="button" class="adm-btn adm-btn--ghost" id="adm-salir">Salir</button>
+    </header>
+
+    <main class="adm-main">
+      <div class="adm-tools">
+        <label class="sr-only" for="adm-buscar">Buscar producto</label>
+        <input class="adm-input" id="adm-buscar" type="search" placeholder="Buscar producto" autocomplete="off">
+        <label class="sr-only" for="adm-filtro-cat">Filtrar por categoría</label>
+        <select class="adm-input" id="adm-filtro-cat"><option value="">Todas las categorías</option></select>
+        <button type="button" class="adm-btn adm-btn--primary" id="adm-agregar">+ Agregar producto</button>
+      </div>
+      <p id="adm-estado" class="adm-estado" role="status"></p>
+      <ul id="adm-lista" class="adm-lista"></ul>
+    </main>
+  </div>
+
+  <!-- EDITOR (panel lateral; pantalla completa en celular) -->
+  <dialog id="adm-editor" class="adm-editor" aria-labelledby="adm-editor-titulo">
+    <form id="adm-form" class="adm-editor-body" novalidate>
+      <header class="adm-editor-head">
+        <h2 id="adm-editor-titulo" class="adm-h2">Producto</h2>
+        <button type="button" class="adm-btn adm-btn--ghost" id="adm-editor-cerrar" aria-label="Cerrar editor">✕</button>
+      </header>
+
+      <div class="adm-editor-campos">
+        <p id="adm-nota" class="adm-nota" hidden></p>
+
+        <label class="adm-label" for="f-nombre">Nombre *</label>
+        <input class="adm-input" id="f-nombre" maxlength="120" autocomplete="off" required>
+
+        <label class="adm-label" for="f-categoria">Categoría *</label>
+        <select class="adm-input" id="f-categoria"></select>
+        <input class="adm-input" id="f-categoria-nueva" maxlength="60" placeholder="Nombre de la nueva categoría" autocomplete="off" hidden>
+
+        <label class="adm-label" for="f-subcategoria">Subcategoría</label>
+        <input class="adm-input" id="f-subcategoria" maxlength="80" autocomplete="off">
+
+        <label class="adm-label" for="f-variante">Variante (color, capacidad…)</label>
+        <input class="adm-input" id="f-variante" maxlength="120" autocomplete="off">
+
+        <label class="adm-label" for="f-especificacion">Especificación</label>
+        <input class="adm-input" id="f-especificacion" maxlength="200" autocomplete="off">
+
+        <label class="adm-label" for="f-precio">Precio en pesos (vacío = “Consultar”)</label>
+        <input class="adm-input" id="f-precio" inputmode="numeric" autocomplete="off" placeholder="$1.850.000">
+
+        <div class="adm-switches">
+          <label class="adm-switch"><input type="checkbox" role="switch" id="f-regalo"><span class="adm-switch-pista" aria-hidden="true"></span><span>Viene con regalo</span></label>
+          <label class="adm-switch"><input type="checkbox" role="switch" id="f-disponible"><span class="adm-switch-pista" aria-hidden="true"></span><span>Disponible</span></label>
+        </div>
+
+        <p class="adm-label" id="f-fotos-rotulo">Fotos</p>
+        <div id="adm-drop" class="adm-drop" role="group" aria-labelledby="f-fotos-rotulo">
+          <label class="adm-btn adm-btn--outline" for="f-archivos">Elegir fotos</label>
+          <input id="f-archivos" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+          <span class="adm-drop-ayuda">o arrastralas acá. JPG, PNG o WebP; se achican solas.</span>
+        </div>
+        <ul id="adm-fotos" class="adm-fotos"></ul>
+
+        <p id="adm-form-error" class="adm-error" role="alert" hidden></p>
+      </div>
+
+      <footer class="adm-editor-pie">
+        <button type="button" class="adm-btn adm-btn--outline" id="adm-eliminar" hidden>Eliminar producto</button>
+        <button type="submit" class="adm-btn adm-btn--primary" id="adm-guardar">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- CONFIRMACIÓN (se reutiliza: foto, descartar y eliminar en dos pasos) -->
+  <dialog id="adm-confirm" class="adm-confirm" aria-labelledby="adm-confirm-titulo">
+    <div class="adm-confirm-body">
+      <h2 id="adm-confirm-titulo" class="adm-h2"></h2>
+      <p id="adm-confirm-texto" class="adm-texto"></p>
+      <div id="adm-confirm-escribir" hidden>
+        <label class="adm-label" for="adm-confirm-input" id="adm-confirm-input-rotulo"></label>
+        <input class="adm-input" id="adm-confirm-input" autocomplete="off" autocapitalize="characters">
+      </div>
+      <div class="adm-confirm-acciones">
+        <button type="button" class="adm-btn adm-btn--outline" id="adm-confirm-no">Cancelar</button>
+        <button type="button" class="adm-btn adm-btn--primary" id="adm-confirm-si">Aceptar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <noscript><p class="adm-noscript">Este panel necesita JavaScript.</p></noscript>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous" defer></script>
+  <script src="js/config.js?v=45" defer></script>
+  <script src="js/admin.js?v=45" defer></script>
+</body>
+</html>

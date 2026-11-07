@@ -11,6 +11,29 @@
   const TIMEOUT_MS = 4000, CACHE_MS = 60000, CACHE_KEY = "tecnolab_productos_v1";
   const COLUMNAS = "id,categoria,subcategoria,nombre,variante,especificacion,precio_num,precio_texto,regalo,disponible,oferta,precio_anterior,fotos,colores";
 
+  // Fotos del producto: urls con la principal (o la primera) al frente
+  function urlsDe(fotos) {
+    const l = (Array.isArray(fotos) ? fotos : []).filter((x) => x && typeof x.url === "string" && x.url);
+    const i = l.findIndex((x) => x.principal === true);
+    return (i > 0 ? [l[i], ...l.slice(0, i), ...l.slice(i + 1)] : l).map((x) => x.url);
+  }
+
+  // Con datos de Supabase, `regalo` manda: false quita los regalos de la promo aunque la promo los tenga; true los muestra.
+  // Sin Supabase (respaldo estático) el producto no trae `regalo` y todo sigue como antes.
+  // Se envuelve promoAplica (promos-data.js): la usan promosDe (cards y detalle) y pedido.js (regalo en «Mi pedido»).
+  let promoEnvuelta = false;
+  function regaloManda() {
+    if (promoEnvuelta || typeof promoAplica !== "function") return;
+    promoEnvuelta = true;
+    const original = promoAplica;
+    window.promoAplica = function (promo, prod) {
+      const conRegalos = !!(promo && (promo.regalos || []).filter(Boolean).length);
+      if (conRegalos && prod && prod.regalo === false) return false;
+      if (conRegalos && prod && prod.regalo === true) return true;
+      return original.apply(this, arguments);
+    };
+  }
+
   function aplicar(filas) {
     if (!Array.isArray(filas)) return false;
     const equipos = [], accesorios = [];
@@ -18,9 +41,8 @@
       if (!r || !r.id || !r.nombre) return;
       const colores = Array.isArray(r.colores) ? r.colores : [];
       if (r.categoria === "Accesorios") {
-        const fotos = (Array.isArray(r.fotos) ? r.fotos : []).filter((x) => x && x.url);
-        const f = fotos.find((x) => x.principal) || fotos[0];
-        accesorios.push([r.subcategoria || "", r.nombre, r.precio_num == null ? null : Number(r.precio_num), f ? f.url : (colores[0] && colores[0].imagen) || undefined]);
+        const urls = urlsDe(r.fotos);
+        accesorios.push([r.subcategoria || "", r.nombre, r.precio_num == null ? null : Number(r.precio_num), urls[0] || (colores[0] && colores[0].imagen) || undefined, urls, r.regalo === true]);
         return;
       }
       const p = {
@@ -30,10 +52,12 @@
         colores, disponible: r.disponible !== false, oferta: r.oferta === true,
         precioAnterior: r.precio_anterior == null ? null : Number(r.precio_anterior), regalo: r.regalo === true
       };
+      p.fotos = urlsDe(r.fotos);
       if (r.subcategoria) p.subcategoria = r.subcategoria;
       equipos.push(p);
     });
     if (!equipos.length) return false; // respuesta inservible: se queda lo estático
+    regaloManda();
     CATALOGO_DESTACADO.splice(0, CATALOGO_DESTACADO.length, ...equipos);
     if (accesorios.length && typeof ACCESORIOS_BASE !== "undefined") ACCESORIOS_BASE.splice(0, ACCESORIOS_BASE.length, ...accesorios);
     return true;
