@@ -8,8 +8,8 @@
   "use strict";
   if (typeof CATALOGO_DESTACADO === "undefined" || typeof SUPABASE_URL === "undefined" || typeof SUPABASE_ANON_KEY === "undefined") return;
 
-  const TIMEOUT_MS = 4000, CACHE_MS = 60000, CACHE_KEY = "tecnolab_productos_v1";
-  const COLUMNAS = "id,categoria,subcategoria,nombre,variante,especificacion,precio_num,precio_texto,regalo,disponible,oferta,precio_anterior,fotos,colores";
+  const TIMEOUT_MS = 4000, CACHE_MS = 60000, CACHE_KEY = "tecnolab_productos_v2";
+  const COLUMNAS = "id,categoria,subcategoria,nombre,variante,especificacion,precio_num,precio_texto,regalo,disponible,oferta,precio_anterior,moneda,fotos,colores";
 
   // Fotos del producto: urls con la principal (o la primera) al frente
   function urlsDe(fotos) {
@@ -42,14 +42,14 @@
       const colores = Array.isArray(r.colores) ? r.colores : [];
       if (r.categoria === "Accesorios") {
         const urls = urlsDe(r.fotos);
-        accesorios.push([r.subcategoria || "", r.nombre, r.precio_num == null ? null : Number(r.precio_num), urls[0] || (colores[0] && colores[0].imagen) || undefined, urls, r.regalo === true]);
+        accesorios.push([r.subcategoria || "", r.nombre, r.precio_num == null ? null : Number(r.precio_num), urls[0] || (colores[0] && colores[0].imagen) || undefined, urls, r.regalo === true, r.moneda === "USD" ? "USD" : "ARS"]);
         return;
       }
       const p = {
         id: r.id, categoria: r.categoria, nombre: r.nombre, variante: r.variante || "", especificacion: r.especificacion || "",
         precio: r.precio_texto == null ? "Consultar" : r.precio_texto,
         precioNum: r.precio_num == null ? null : Number(r.precio_num),
-        colores, disponible: r.disponible !== false, oferta: r.oferta === true,
+        moneda: r.moneda === "USD" ? "USD" : "ARS", colores, disponible: r.disponible !== false, oferta: r.oferta === true,
         precioAnterior: r.precio_anterior == null ? null : Number(r.precio_anterior), regalo: r.regalo === true
       };
       p.fotos = urlsDe(r.fotos);

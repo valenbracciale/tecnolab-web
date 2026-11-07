@@ -838,12 +838,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof ACCESORIOS_BASE === "undefined") return [];
     const usados = new Set();
     // cuarto valor opcional de cada fila = ruta de la foto (WebP con fondo transparente)
-    return ACCESORIOS_BASE.map(([subcategoria, nombre, precioNum, foto, fotos, regalo]) => {
+    return ACCESORIOS_BASE.map(([subcategoria, nombre, precioNum, foto, fotos, regalo, moneda]) => {
       const base = normalizar(nombre).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       let id = base;
       for (let n = 2; usados.has(id); n++) id = base + "-" + n;
       usados.add(id);
-      return { id, categoria: "Accesorios", subcategoria, nombre, variante: "", especificacion: "", precioNum: Number.isFinite(precioNum) ? precioNum : null, colores: foto ? [{ nombre: "Único", hex: "#FFFFFF", imagen: foto }] : [], disponible: true, fotos: Array.isArray(fotos) ? fotos : [], ...(typeof regalo === "boolean" ? { regalo } : {}) };
+      return { id, categoria: "Accesorios", subcategoria, nombre, variante: "", especificacion: "", precioNum: Number.isFinite(precioNum) ? precioNum : null, moneda: moneda === "USD" ? "USD" : "ARS", colores: foto ? [{ nombre: "Único", hex: "#FFFFFF", imagen: foto }] : [], disponible: true, fotos: Array.isArray(fotos) ? fotos : [], ...(typeof regalo === "boolean" ? { regalo } : {}) };
     });
   }
 
@@ -863,14 +863,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Precio visible de un producto: { desde, texto }. Accesorios: el precio guardado (precioNum) solo se
   // imprime con ACCESORIOS_CONFIG.mostrarPrecio === true; en cualquier otro caso, «Consultar».
-  const fmtNum = (n) => new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(n);
-  // «USD 1.250» / «$ 19.800» si hay moneda y precioNum numérico; si no, el texto de p.precio sin tocarlo.
-  function formatearPrecio(p) {
-    const ok = Number.isFinite(p.precioNum);
-    if (ok && p.moneda === "USD") return "USD " + fmtNum(p.precioNum);
-    if (ok && p.moneda === "ARS") return "$ " + fmtNum(p.precioNum);
-    return p.precio == null ? "Consultar" : String(p.precio);
-  }
+  // El formato de precios es único: formatearPrecio(valor, moneda) vive en js/config.js («$1.850.000» / «US$ 1.200»).
   const esUsado = (p) => p.condicion === "usado";
   const bateriaDe = (p) => (esUsado(p) && Number.isInteger(p.bateria) && p.bateria >= 0 && p.bateria <= 100 ? p.bateria : null);
   const ICONO_BATERIA = `<svg class="icono-bateria" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2.5"></rect><path d="M22 10.5v3"></path></svg>`;
@@ -882,11 +875,14 @@ document.addEventListener("DOMContentLoaded", () => {
     return p.variante.includes(cs[0].nombre) ? p.variante.replace(cs[0].nombre, c.nombre) : p.variante + " · " + c.nombre;
   }
   function precioDe(p) {
-    if (p.categoria !== "Accesorios" && p.moneda && Number.isFinite(p.precioNum)) return { desde: null, texto: formatearPrecio(p) };
+    const ok = Number.isFinite(p.precioNum) && p.precioNum > 0; // null o 0 → «Consultar» / el texto de p.precio
+    const mon = p.moneda === "USD" ? "USD" : "ARS";
     if (p.categoria === "Accesorios") {
-      const visible = typeof ACCESORIOS_CONFIG !== "undefined" && ACCESORIOS_CONFIG.mostrarPrecio === true && Number.isFinite(p.precioNum);
-      return { desde: null, texto: visible ? "$ " + new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(p.precioNum) : "Consultar" };
+      const visible = typeof ACCESORIOS_CONFIG !== "undefined" && ACCESORIOS_CONFIG.mostrarPrecio === true && ok;
+      return { desde: null, texto: visible ? formatearPrecio(p.precioNum, mon) : "Consultar" };
     }
+    if (p.moneda && ok) return { desde: /^Desde\s/i.test(String(p.precio)) ? "Desde" : null, texto: formatearPrecio(p.precioNum, mon) };
+    if (p.precio == null) return { desde: null, texto: "Consultar" };
     const m = String(p.precio).match(/^(Desde)\s+(.+)$/i);
     return m ? { desde: m[1], texto: m[2] } : { desde: null, texto: String(p.precio) };
   }
@@ -972,7 +968,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const enOferta = p.oferta === true && Number.isFinite(p.precioAnterior);
     const ofertaHead = enOferta
       ? `<div class="oferta-head"><span class="oferta-head-tag">⚡ Oportunidad del día</span>
-          <s class="oferta-head-old"><span class="sr-only">Precio anterior: </span>${p.moneda === "USD" ? "USD " : "$ "}${fmtNum(p.precioAnterior)}</s>
+          <s class="oferta-head-old"><span class="sr-only">Precio anterior: </span>${formatearPrecio(p.precioAnterior, p.moneda)}</s>
           <strong class="oferta-head-new"><span class="sr-only">Precio ahora: </span>${pr.desde ? pr.desde + " " : ""}${pr.texto}</strong></div>` : "";
     return `
       <article class="product-card${enOferta ? " product-card--oferta" : ""}" data-id="${escAttr(p.id)}" data-categoria="${p.categoria}" data-condicion="${usado ? "usado" : "nuevo"}"${p.subcategoria ? ` data-subcategoria="${escAttr(p.subcategoria)}"` : ""} data-busqueda="${escAttr(normalizar([p.nombre, p.subcategoria || "", p.variante || "", usado ? "usado" : ""].join(" ")))}">
@@ -1464,7 +1460,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!habilitada && !preview) return;
 
     const Calc = CalculadoraCanje;
-    const productos = typeof CATALOGO_DESTACADO !== "undefined" ? CATALOGO_DESTACADO : [];
+    // la calculadora compara precioNum con la tabla de canje: solo entran productos en la moneda de la tabla (o sin moneda, datos viejos)
+    const productos = typeof CATALOGO_DESTACADO !== "undefined" ? CATALOGO_DESTACADO.filter((p) => !p.moneda || p.moneda === CANJE_CONFIG.moneda) : [];
     const money = (n) => Calc.formatearMonto(CANJE_CONFIG, n);
     const waLink = (texto) =>
       "https://wa.me/" + (typeof SITE_CONFIG !== "undefined" ? SITE_CONFIG.whatsappNumber : "") + "?text=" + encodeURIComponent(texto);

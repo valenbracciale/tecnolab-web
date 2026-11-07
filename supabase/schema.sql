@@ -12,13 +12,16 @@ create table if not exists public.productos (
   regalo boolean default false,
   disponible boolean default true,
   oferta boolean default false,
-  precio_anterior numeric,
+  precio_anterior numeric,           -- siempre en la misma moneda del producto (columna moneda)
   destacado boolean default false,
   orden int,
   fotos jsonb default '[]'::jsonb,   -- [{ url, path, principal }]
   colores jsonb default '[]'::jsonb, -- [{ nombre, hex, imagen }]
   updated_at timestamptz default now()
 );
+
+-- Moneda del producto (precio_num y precio_anterior). Idempotente: en tablas ya creadas agrega la columna; los existentes quedan en ARS.
+alter table public.productos add column if not exists moneda text not null default 'ARS' check (moneda in ('ARS', 'USD'));
 
 create index if not exists productos_orden_idx on public.productos (orden);
 

@@ -13,7 +13,7 @@
   const TIPOS = ["image/jpeg", "image/png", "image/webp"];
   const EXTS = ["jpg", "jpeg", "png", "webp"];
   const NUEVA = "__nueva__";
-  const COLUMNAS = "id,categoria,subcategoria,nombre,variante,especificacion,precio_num,precio_texto,regalo,disponible,orden,fotos,colores";
+  const COLUMNAS = "id,categoria,subcategoria,nombre,variante,especificacion,precio_num,precio_texto,moneda,regalo,disponible,orden,fotos,colores";
   const fmt = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 
   const $ = (id) => document.getElementById(id);
@@ -38,7 +38,8 @@
   /* ---------------------------------------------------------------- utilidades */
   const norm = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const slug = (t) => norm(t).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "producto";
-  const precioTxt = (n) => "$" + fmt.format(n);
+  const monedaSel = () => ($("f-moneda").value === "USD" ? "USD" : "ARS");
+  const precioTxt = (n, m) => formatearPrecio(n, m || "ARS"); // formato único (js/config.js)
   // Solo se muestran imágenes de nuestro Storage o de assets/img (las que ya trae el sitio)
   function srcSeguro(u) {
     const s = String(u || "");
@@ -142,7 +143,7 @@
     $("adm-lista").replaceChildren(...vis.map((p) => {
       const src = srcSeguro(fotoPrincipal(p));
       const thumb = src ? h("img", { class: "adm-thumb", src, alt: "", width: "56", height: "56", loading: "lazy", decoding: "async" }) : h("span", { class: "adm-thumb", "aria-hidden": "true", text: "Sin foto" });
-      const precio = Number.isFinite(Number(p.precio_num)) && p.precio_num !== null ? precioTxt(p.precio_num) : (p.precio_texto || "Consultar");
+      const precio = Number.isFinite(Number(p.precio_num)) && p.precio_num !== null && Number(p.precio_num) > 0 ? precioTxt(p.precio_num, p.moneda) : (p.precio_texto || "Consultar");
       return h("li", {}, h("button", { type: "button", class: "adm-row", "data-id": p.id, onclick: () => abrirEditor(p) },
         thumb,
         h("span", {},
@@ -177,7 +178,8 @@
     $("f-subcategoria").value = nuevo ? "" : p.subcategoria || "";
     $("f-variante").value = nuevo ? "" : p.variante || "";
     $("f-especificacion").value = nuevo ? "" : p.especificacion || "";
-    $("f-precio").value = !nuevo && p.precio_num !== null && Number.isFinite(Number(p.precio_num)) ? precioTxt(p.precio_num) : "";
+    $("f-moneda").value = !nuevo && p.moneda === "USD" ? "USD" : "ARS";
+    $("f-precio").value = !nuevo && p.precio_num !== null && Number.isFinite(Number(p.precio_num)) && Number(p.precio_num) > 0 ? precioTxt(p.precio_num, p.moneda) : "";
     $("f-regalo").checked = nuevo ? false : p.regalo === true;
     $("f-disponible").checked = nuevo ? true : p.disponible !== false;
     $("adm-eliminar").hidden = nuevo;
@@ -219,9 +221,9 @@
   /* -- precio con formato $1.850.000 -- */
   function formatearPrecioInput() {
     const i = $("f-precio"), d = i.value.replace(/\D/g, "").slice(0, 12);
-    i.value = d ? precioTxt(Number(d)) : "";
+    i.value = d && Number(d) > 0 ? precioTxt(Number(d), monedaSel()) : ""; // cambiar la moneda no convierte el número
   }
-  const precioNum = () => { const d = $("f-precio").value.replace(/\D/g, ""); return d ? Number(d) : null; };
+  const precioNum = () => { const d = $("f-precio").value.replace(/\D/g, ""); return d && Number(d) > 0 ? Number(d) : null; };
 
   /* -- fotos -- */
   function pintarFotos(subiendo) {
@@ -331,17 +333,18 @@
     if (!categoria) return { error: "Elegí una categoría (o creá una nueva)." };
     const n = precioNum();
     if (n !== null && (!Number.isFinite(n) || n < 0)) return { error: "El precio no puede ser negativo." };
+    const m = monedaSel();
     const previo = ed.orig && typeof ed.orig.precio_texto === "string" ? ed.orig.precio_texto : "";
-    const desde = /^Desde\s/i.test(previo) && ed.orig && Number(ed.orig.precio_num) === n ? "Desde " : "";
-    // Si no cambió el precio, se conserva el texto original (ej. «Desde $1.850.000»)
-    const texto = ed.orig && Number(ed.orig.precio_num) === n && n !== null && previo ? previo : n === null ? "Consultar" : desde + precioTxt(n);
+    const igual = ed.orig && Number(ed.orig.precio_num) === n && (ed.orig.moneda || "ARS") === m;
+    // Si no cambió el precio ni la moneda se conserva el texto original (ej. «Desde $1.850.000»)
+    const texto = igual && n !== null && previo ? previo : n === null ? "Consultar" : precioTxt(n, m);
     return {
       fila: {
         nombre, categoria,
         subcategoria: $("f-subcategoria").value.trim() || null,
         variante: $("f-variante").value.trim() || null,
         especificacion: $("f-especificacion").value.trim() || null,
-        precio_num: n, precio_texto: texto,
+        precio_num: n, precio_texto: texto, moneda: m,
         regalo: $("f-regalo").checked, disponible: $("f-disponible").checked,
         fotos: ed.fotos.map((f) => ({ url: f.url, path: f.path, principal: f.principal === true }))
       }
@@ -439,6 +442,7 @@
     $("adm-editor").addEventListener("cancel", (e) => { e.preventDefault(); cerrarEditor(false); }); // Esc
     $("adm-form").addEventListener("input", () => { if (ed) ed.sucio = true; });
     $("f-precio").addEventListener("input", formatearPrecioInput);
+    $("f-moneda").addEventListener("change", formatearPrecioInput);
     $("f-categoria").addEventListener("change", (e) => {
       const nueva = e.target.value === NUEVA, i = $("f-categoria-nueva");
       i.hidden = !nueva;

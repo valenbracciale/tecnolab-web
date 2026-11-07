@@ -55,3 +55,12 @@ const SUCURSALES = {
  */
 const SUPABASE_URL = "https://kkdnxxwdstpekkehzrde.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_K9ppONpd5a3f676pwbMupA_IsS57NwS";
+
+/**
+ * Formato único de precios en todo el sitio y en el panel. Pesos: «$1.850.000». Dólares: «US$ 1.200».
+ * useGrouping "always": con 4 dígitos algunos navegadores (es-AR) no ponen el punto.
+ */
+function formatearPrecio(valor, moneda) {
+  const num = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0, useGrouping: "always" }).format(Math.round(Number(valor)));
+  return moneda === "USD" ? "US$ " + num : "$" + num;
+}

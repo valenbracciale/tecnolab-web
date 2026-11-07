@@ -5,8 +5,7 @@
   const P = window.Pedido, MAX_URL = 1800;
   const root = document.documentElement;
   const $ = (s, r) => (r || document).querySelector(s);
-  const fmt = (n) => new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(n);
-  const money = (n, mon) => (mon === "USD" ? "USD " : "$ ") + fmt(n);
+  const money = (n, mon) => formatearPrecio(n, mon); // formato único (js/config.js)
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const esAcc = (p) => p.categoria === "Accesorios";
   const pideModelo = (p) => esAcc(p) && /^(Fundas|Vidrios y protección)$/.test(p.subcategoria || "");
@@ -15,8 +14,8 @@
 
   /* ---------- precios y mensaje ---------- */
   function precioDe(p) { // { n, mon } o null (sin precio confirmado)
-    if (!Number.isFinite(p.precioNum)) return null;
-    if (esAcc(p)) return typeof ACCESORIOS_CONFIG !== "undefined" && ACCESORIOS_CONFIG.mostrarPrecio === true ? { n: p.precioNum, mon: "ARS" } : null;
+    if (!Number.isFinite(p.precioNum) || p.precioNum <= 0) return null;
+    if (esAcc(p)) return typeof ACCESORIOS_CONFIG !== "undefined" && ACCESORIOS_CONFIG.mostrarPrecio === true ? { n: p.precioNum, mon: p.moneda === "USD" ? "USD" : "ARS" } : null;
     return p.moneda === "USD" || p.moneda === "ARS" ? { n: p.precioNum, mon: p.moneda } : null;
   }
   const lineas = () => P.items().map((it) => ({ it, p: P.mapa().get(it.id) }));
@@ -31,7 +30,7 @@
     if (pr.some((x) => !x)) return "A confirmar por WhatsApp";
     const s = {};
     pr.forEach((x, i) => { s[x.mon] = (s[x.mon] || 0) + x.n * vivos[i].it.q; });
-    return Object.keys(s).map((m) => money(s[m], m)).join(" · ");
+    return Object.keys(s).map((m) => money(s[m], m)).join(" + "); // una suma por moneda: nunca se mezclan
   }
   const grupos = (v) => ({ eq: subtotal(v.filter((l) => !esAcc(l.p))), ac: subtotal(v.filter((l) => esAcc(l.p))) });
 

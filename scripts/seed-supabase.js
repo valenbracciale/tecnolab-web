@@ -7,6 +7,8 @@
  * o poniendo esas dos variables en .env.local (ignorado por git) y corriendo:
  *   node scripts/seed-supabase.js
  *
+ * No incluye la columna `moneda` a propósito: en filas nuevas queda el default ARS y en las existentes no se pisa.
+ * (Sí repone precios y datos de catálogo: no correrlo de nuevo si ya se editaron productos desde el panel.)
  * La service key NUNCA va en el repo ni en archivos del sitio. Antes, correr supabase/schema.sql en el SQL Editor.
  */
 const fs = require('fs');
