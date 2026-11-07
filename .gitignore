@@ -7,3 +7,6 @@ _originales/
 
 # Herramientas de desarrollo: scripts/ SÍ se versiona; solo sus dependencias no
 scripts/node_modules/
+
+# Secretos locales (service key de Supabase, etc.)
+.env*

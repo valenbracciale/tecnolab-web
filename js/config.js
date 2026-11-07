@@ -48,3 +48,10 @@ const SUCURSALES = {
     }
   }
 };
+
+/**
+ * Supabase (productos). La anon/publishable key es pública por diseño: la protección es RLS (solo lectura para anon).
+ * La service key NUNCA va acá (ver scripts/seed-supabase.js).
+ */
+const SUPABASE_URL = "https://kkdnxxwdstpekkehzrde.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_K9ppONpd5a3f676pwbMupA_IsS57NwS";
