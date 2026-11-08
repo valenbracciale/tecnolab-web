@@ -1926,6 +1926,28 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
   .nav-scrim, .nav-panel, .nav-trigger svg, .nav-panel a { transition: none !important; }
 }
 
+/* Header en una sola línea: nada se parte ni baja de renglón */
+.header-inner { flex-wrap: nowrap; }
+.main-nav > ul { flex-wrap: nowrap; }
+.nav-link, .header-wa { white-space: nowrap; }
+
+/* Escritorio chico y laptops (900–1280 px): header fluido. Por debajo de 900 px sigue el menú hamburguesa. */
+@media (min-width: 900px) and (max-width: 1280px) {
+  :root { --header-h: clamp(56px, 6vw, 64px); }
+  .site-header .header-inner { padding: 0 16px; gap: clamp(10px, 1.6vw, 24px); }
+  .logo img { height: clamp(28px, 2.6vw, 34px); }
+  .main-nav > ul { gap: clamp(10px, 1.6vw, 24px); }
+  .nav-link { font-size: clamp(11px, 1.25vw, 14px); letter-spacing: 0.02em; }
+  .header-cta { gap: 8px; }
+  .header-wa { padding: 8px 16px; font-size: 13px; }
+  /* Panel de Catálogo: las columnas se acomodan en vez de desbordar */
+  .nav-panel {
+    padding: 24px;
+    gap: 8px 24px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
 /* ==========================================================================
    DETALLE DE PRODUCTO (<dialog class="product-dialog">, js/main.js → initDetalleProducto)
    Escritorio: dos columnas (imagen | información). Mobile: una columna, casi a pantalla completa.
