@@ -964,15 +964,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const regalosCard = promo ? (promo.regalos || []).filter(Boolean) : [];
     const etiquetaTexto = p.subcategoria || p.categoria;
     const etiqueta = usado ? `<span class="product-card-eyebrow is-used">Usado</span>` : p.nuevo === true ? `<span class="product-card-eyebrow is-new">Nuevo</span>` : `<span class="product-card-eyebrow">${etiquetaTexto}</span>`;
-    // Variante G («Oportunidad del día»): mismo cuerpo de card, con cabecera celeste de precios
+    // «Oportunidad del día»: misma card, con pie azul (etiqueta, precio actual y tachado, botón) en lugar del bloque de precio
     const enOferta = p.oferta === true && Number.isFinite(p.precioAnterior);
-    const ofertaHead = enOferta
-      ? `<div class="oferta-head"><span class="oferta-head-tag">⚡ Oportunidad del día</span>
-          <s class="oferta-head-old"><span class="sr-only">Precio anterior: </span>${formatearPrecio(p.precioAnterior, p.moneda)}</s>
-          <strong class="oferta-head-new"><span class="sr-only">Precio ahora: </span>${pr.desde ? pr.desde + " " : ""}${pr.texto}</strong></div>` : "";
+    const ICONO_RAYO = `<svg viewBox="0 0 9 11" aria-hidden="true"><path d="M5.5 0L0 6.2h3.4L2.8 11 9 4.3H5.6z"/></svg>`;
+    const btnAgregar = `<button type="button" class="btn btn-primary product-card-add" data-add="${escAttr(p.id)}"${usado ? " data-usado" : ""}>${ICONO_MAS}<span class="add-txt">Agregar</span></button>`;
+    const pie = enOferta
+      ? `<div class="product-card-foot oferta-foot">
+          <p class="oferta-foot-tag">${ICONO_RAYO}Oportunidad del día</p>
+          <p class="oferta-foot-price"><strong><span class="sr-only">Precio ahora: </span>${pr.texto}</strong><s><span class="sr-only">Precio anterior: </span>${formatearPrecio(p.precioAnterior, p.moneda)}</s></p>
+          ${btnAgregar}
+        </div>`
+      : `<div class="product-card-foot">
+          <p class="product-card-price"><span class="sr-only">Precio: </span>${price}</p>
+          ${btnAgregar}
+        </div>`;
     return `
       <article class="product-card${enOferta ? " product-card--oferta" : ""}" data-id="${escAttr(p.id)}" data-categoria="${p.categoria}" data-condicion="${usado ? "usado" : "nuevo"}"${p.subcategoria ? ` data-subcategoria="${escAttr(p.subcategoria)}"` : ""} data-busqueda="${escAttr(normalizar([p.nombre, p.subcategoria || "", p.variante || "", usado ? "usado" : ""].join(" ")))}">
-        ${ofertaHead}
         <button type="button" class="product-card-open" aria-haspopup="dialog" aria-label="${escAttr("Ver detalle de " + p.nombre + (p.variante ? ", " + p.variante : ""))}"></button>
         ${regalosCard.length ? `<button type="button" class="gift-ribbon" aria-label="Ver regalo incluido"><span class="gift-ribbon-band">${ICONO_REGALO}Regalo</span></button>` : ""}
         <div class="product-card-head">
@@ -991,10 +998,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ${regalosCard.length ? giftOverlayHTML(regalosCard) : ""}
         </div>
         ${swatches}
-        <div class="product-card-foot">
-          <p class="product-card-price"><span class="sr-only">Precio: </span>${price}</p>
-          <button type="button" class="btn btn-primary product-card-add" data-add="${escAttr(p.id)}"${usado ? " data-usado" : ""}>${ICONO_MAS}<span class="add-txt">Agregar</span></button>
-        </div>
+        ${pie}
       </article>`;
   }
 
