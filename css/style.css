@@ -1279,7 +1279,14 @@ html[data-glass="liquid"] .hero-btn--ghost {
 /* ==========================================================================
    OPORTUNIDAD DEL DÍA — franja azul dentro de la product-card (misma card y tamaño que las demás)
    ========================================================================== */
-.product-card--oferta { --op: 24px; }
+.product-card--oferta { --op: 24px; --ribbon-w: 110px; }
+.is-compact .product-card--oferta { --ribbon-w: 100px; }
+/* El precio de la franja es el único: el bloque inferior se oculta */
+.product-card--oferta .product-card-price { display: none; }
+/* Con regalo, el texto no pasa por debajo de la cinta: se parte en dos líneas (sin puntos suspensivos) */
+.product-card--oferta:has(.gift-ribbon) .oferta-head { padding-right: calc(var(--ribbon-w) - 52px); }
+.product-card--oferta:has(.gift-ribbon) .oferta-head-tag { padding-right: 28px; text-wrap: balance; }
+.oferta-head { position: relative; z-index: 1; }
 .oferta-head {
   margin: calc(var(--op) * -1) calc(var(--op) * -1) 14px;
   padding: 12px 16px 14px;
@@ -1293,6 +1300,57 @@ html[data-glass="liquid"] .hero-btn--ghost {
 .oferta-head-old { font-size: 12px; color: rgba(255, 255, 255, 0.65); text-decoration: line-through; }
 .oferta-head-new { font-size: 22px; font-weight: 800; color: #fff; line-height: 1.15; }
 @media (max-width: 899px) { .product-card--oferta { --op: 12px; } }
+
+/* ==========================================================================
+   CARDS EN CELULAR (≤640px): foto de alto fijo, textos y paddings compactos, botón de 44px.
+   --card-media-h = alto de la foto de toda card; la de oportunidad le resta lo que ocupa de más la franja
+   (--strip-h + --strip-gap − el precio inferior que se oculta − el padding que la franja absorbe).
+   ========================================================================== */
+@media (max-width: 640px) {
+  .is-compact .product-card {
+    --card-media-h: clamp(140px, 40vw, 190px);
+    --price-h: 32px;
+    --strip-h: 52px;
+    --strip-gap: 8px;
+    padding: 10px;
+  }
+  .is-compact .product-card--oferta { --op: 10px; }
+  .is-compact .product-card--oferta:has(.gift-ribbon) { --strip-h: 76px; }
+  .is-compact .product-card .product-card-media {
+    flex: 0 0 auto;
+    aspect-ratio: auto;
+    height: var(--card-media-h);
+    margin: 4px 0 0;
+  }
+  .is-compact .product-card--oferta .product-card-media {
+    height: calc(var(--card-media-h) - (var(--strip-h) + var(--strip-gap) - var(--op) - var(--price-h)));
+  }
+  .is-compact .product-card .product-card-media img { object-fit: contain; }
+  .is-compact .product-card .product-card-name { font-size: 14px; }
+  .is-compact .product-card .product-card-variant { margin-top: 1px; font-size: 11px; }
+  .is-compact .product-card .product-card-price { min-height: var(--price-h); }
+  .is-compact .product-card .product-card-price small { font-size: 10px; }
+  .is-compact .product-card .product-card-price strong { font-size: 15px; }
+  .is-compact .product-card .btn { height: 44px; min-height: 44px; margin-top: 6px; font-size: 14px; }
+  .is-compact .product-card .color-swatches { margin: 2px 0 0; }
+  .catalog-grid, .catalog-cards-row { grid-auto-rows: 1fr; }
+
+  /* Franja compacta: etiqueta arriba; abajo, tachado + precio nuevo en una sola fila (salvo que la cinta no deje lugar) */
+  .is-compact .oferta-head {
+    height: var(--strip-h);
+    margin-bottom: var(--strip-gap);
+    padding: 8px 10px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: space-between;
+    align-items: baseline;
+    gap: 0 8px;
+    overflow: hidden;
+  }
+  .is-compact .oferta-head-tag { flex: 0 0 100%; font-size: 9px; letter-spacing: 0.04em; line-height: 1.2; }
+  .is-compact .oferta-head-old { font-size: 11px; line-height: 1.2; }
+  .is-compact .oferta-head-new { font-size: 16px; line-height: 1.2; }
+}
 
 /* ==========================================================================
    POR QUÉ TECNOLAB — estadísticas (+ cortina)
@@ -2558,7 +2616,7 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
   position: absolute;
   top: 26px; right: -30px;
   width: 140px;
-  background: #04A5FF;
+  background: linear-gradient(100deg, var(--blue) 0%, var(--blue) 30%, var(--blue-hover) 45%, color-mix(in srgb, var(--white) 38%, var(--blue)) 50%, var(--blue-hover) 55%, var(--blue) 70%, var(--blue) 100%) 100% 0 / 260% 100% no-repeat;
   color: #fff;
   font-size: 10px;
   font-weight: 600;
@@ -2567,23 +2625,25 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
   text-align: center;
   padding: 8px 0;
   transform: rotate(45deg);
-  box-shadow: 0 3px 14px rgba(4, 165, 255, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  animation: ribbon-attention 3s ease-in-out infinite;
+  animation: ribbon-attention 3s ease-in-out infinite, ribbon-shine 3s ease-in-out infinite;
 }
 .gift-ribbon-band svg { width: 11px; height: 11px; flex: 0 0 11px; }
 @keyframes ribbon-attention {
-  0%   { box-shadow: 0 3px 14px rgba(4, 165, 255, 0.5); filter: brightness(1); }
-  40%  { box-shadow: 0 3px 22px rgba(4, 165, 255, 0.85), 0 0 24px rgba(4, 165, 255, 0.4); filter: brightness(1.15); }
+  0%, 40% { transform: rotate(45deg); }
   50%  { transform: rotate(45deg) scale(1.06); }
   60%  { transform: rotate(45deg) scale(1); }
   65%  { transform: rotate(45deg) translateX(2px); }
   70%  { transform: rotate(45deg) translateX(-2px); }
-  75%  { transform: rotate(45deg) translateX(0); }
-  100% { box-shadow: 0 3px 14px rgba(4, 165, 255, 0.5); filter: brightness(1); }
+  75%, 100% { transform: rotate(45deg) translateX(0); }
+}
+/* Brillo que viaja por dentro de la cinta (background-position): nada sale de la cinta, así que no hay cortes */
+@keyframes ribbon-shine {
+  0%, 25% { background-position: 100% 0; }
+  60%, 100% { background-position: 0 0; }
 }
 @media (prefers-reduced-motion: reduce) { .gift-ribbon-band { animation: none; } }
 .is-compact .product-card .gift-ribbon { width: 100px; height: 100px; }
