@@ -1280,8 +1280,8 @@ html[data-glass="liquid"] .hero-btn--ghost {
    OPORTUNIDAD DEL DÍA — card normal con pie azul de ancho completo (etiqueta, precio, botón blanco).
    --op = padding de la card: el pie lo anula con márgenes negativos y hereda las esquinas inferiores.
    ========================================================================== */
-.product-card--oferta { --op: 24px; --ribbon-w: 110px; }
-.is-compact .product-card--oferta { --op: 12px; --ribbon-w: 100px; }
+.product-card--oferta { --op: 24px; }
+.is-compact .product-card--oferta { --op: 12px; }
 .product-card--oferta .product-card-foot.oferta-foot {
   margin: auto calc(var(--op) * -1) calc(var(--op) * -1);
   padding: 9px 12px 10px;
@@ -1332,7 +1332,6 @@ html[data-glass="liquid"] .hero-btn--ghost {
   .is-compact .product-card {
     --card-media-h: clamp(140px, 40vw, 190px);
     --price-h: 32px;
-    --ribbon-w: 52px;
     padding: 10px;
   }
   .is-compact .product-card--oferta { --op: 10px; }
@@ -1345,7 +1344,7 @@ html[data-glass="liquid"] .hero-btn--ghost {
   .is-compact .product-card .product-card-media img { object-fit: contain; }
   .is-compact .product-card .product-card-name { font-size: 13px; }
   .is-compact .product-card .product-card-variant { margin-top: 1px; font-size: 11px; }
-  .is-compact .product-card:has(.gift-ribbon) .product-card-head { padding-right: calc(var(--ribbon-w) - 10px); }
+  .is-compact .product-card:has(.gift-ribbon) .product-card-head { padding-right: calc(var(--ribbon-w) - 16px); }
   .is-compact .product-card .product-card-price { min-height: var(--price-h); }
   .is-compact .product-card .product-card-price small { font-size: 10px; }
   .is-compact .product-card .product-card-price strong { font-size: 15px; }
@@ -1361,10 +1360,6 @@ html[data-glass="liquid"] .hero-btn--ghost {
   .is-compact .oferta-foot-price s { font-size: 9.5px; }
   .is-compact .product-card--oferta .product-card-foot.oferta-foot .btn { height: 34px; min-height: 34px; margin-top: 6px; font-size: 13px; }
 
-  /* Cinta de regalo: triángulo de 52px */
-  .is-compact .product-card .gift-ribbon { width: var(--ribbon-w); height: var(--ribbon-w); }
-  .is-compact .product-card .gift-ribbon-band { top: 11px; right: -17px; width: 76px; padding: 3px 0; font-size: 7px; letter-spacing: 0.08em; gap: 2px; }
-  .is-compact .product-card .gift-ribbon-band svg { width: 7px; height: 7px; flex-basis: 7px; }
 }
 
 /* ==========================================================================
@@ -2613,15 +2608,21 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
 /* ---- Listón de regalo (esquina superior derecha) + panel con los regalos sobre la foto ----
    El listón es un botón (z 10) por encima del botón invisible que abre el detalle; el panel cubre solo la zona de la foto
    (z 4), así que la card no cambia de tamaño. Se arma en js/main.js (renderProductCard / toggleGift). */
+/* Una sola variable: --ribbon-w (lado del triángulo). Banda, texto e ícono se calculan a partir de ella.
+   110px en desktop, 100px con la card compacta (≤899px), 64px en celular (≤640px, ver bloque CARDS EN CELULAR). */
+.product-card { --ribbon-w: 110px; --ribbon-fs: calc(var(--ribbon-w) * 0.092); }
+.is-compact .product-card { --ribbon-w: 100px; }
 .gift-ribbon {
   position: absolute;
   top: 0; right: 0;
-  width: 110px; height: 110px;
+  width: var(--ribbon-w); height: var(--ribbon-w);
   padding: 0;
   border: 0;
   background: none;
   border-top-right-radius: var(--radius-product);
   overflow: hidden;                /* recorta la cinta con la esquina redondeada de la card */
+  clip-path: polygon(0 0, 100% 0, 100% 100%); /* el área clickeable es solo el triángulo visible */
+  pointer-events: auto;
   z-index: 10;
   cursor: pointer;
 }
@@ -2629,24 +2630,37 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
 .gift-ribbon:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .gift-ribbon-band {
   position: absolute;
-  top: 26px; right: -30px;
-  width: 140px;
-  background: linear-gradient(100deg, var(--blue) 0%, var(--blue) 30%, var(--blue-hover) 45%, color-mix(in srgb, var(--white) 38%, var(--blue)) 50%, var(--blue-hover) 55%, var(--blue) 70%, var(--blue) 100%) 100% 0 / 260% 100% no-repeat;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  top: calc(var(--ribbon-w) * 0.2);
+  right: calc(var(--ribbon-w) * -0.3);
+  width: calc(var(--ribbon-w) * 1.45);
+  padding: 3px 0;
+  background: var(--blue);
+  color: var(--white);
+  font-size: var(--ribbon-fs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
   text-transform: uppercase;
   text-align: center;
-  padding: 8px 0;
+  white-space: nowrap;
   transform: rotate(45deg);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  animation: ribbon-attention 3s ease-in-out infinite, ribbon-shine 3s ease-in-out infinite;
+  gap: 3px;
+  animation: ribbon-attention 3s ease-in-out infinite;
 }
-.gift-ribbon-band svg { width: 11px; height: 11px; flex: 0 0 11px; }
+.gift-ribbon-band svg { width: var(--ribbon-fs); height: var(--ribbon-fs); flex: 0 0 var(--ribbon-fs); }
+/* Brillo dentro de la banda: sin sombras ni glow exteriores, nada que el contenedor pueda recortar */
+.gift-ribbon-band::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--white) 35%, transparent) 50%, transparent 70%) 150% 0 / 250% 100% no-repeat;
+  animation: ribbon-shine 3.4s ease-in-out infinite;
+}
 @keyframes ribbon-attention {
   0%, 40% { transform: rotate(45deg); }
   50%  { transform: rotate(45deg) scale(1.06); }
@@ -2655,14 +2669,12 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
   70%  { transform: rotate(45deg) translateX(-2px); }
   75%, 100% { transform: rotate(45deg) translateX(0); }
 }
-/* Brillo que viaja por dentro de la cinta (background-position): nada sale de la cinta, así que no hay cortes */
 @keyframes ribbon-shine {
-  0%, 25% { background-position: 100% 0; }
-  60%, 100% { background-position: 0 0; }
+  0%   { background-position: 150% 0; }
+  60%, 100% { background-position: -50% 0; }
 }
-@media (prefers-reduced-motion: reduce) { .gift-ribbon-band { animation: none; } }
-.is-compact .product-card .gift-ribbon { width: 100px; height: 100px; }
-.is-compact .product-card .gift-ribbon-band { top: 22px; right: -30px; padding: 7px 0; }
+@media (prefers-reduced-motion: reduce) { .gift-ribbon-band, .gift-ribbon-band::after { animation: none; } }
+@media (max-width: 640px) { .is-compact .product-card { --ribbon-w: 64px; --ribbon-fs: calc(var(--ribbon-w) * 0.115); } }
 
 .gift-overlay {
   position: absolute;

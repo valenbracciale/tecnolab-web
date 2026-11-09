@@ -981,7 +981,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return `
       <article class="product-card${enOferta ? " product-card--oferta" : ""}" data-id="${escAttr(p.id)}" data-categoria="${p.categoria}" data-condicion="${usado ? "usado" : "nuevo"}"${p.subcategoria ? ` data-subcategoria="${escAttr(p.subcategoria)}"` : ""} data-busqueda="${escAttr(normalizar([p.nombre, p.subcategoria || "", p.variante || "", usado ? "usado" : ""].join(" ")))}">
         <button type="button" class="product-card-open" aria-haspopup="dialog" aria-label="${escAttr("Ver detalle de " + p.nombre + (p.variante ? ", " + p.variante : ""))}"></button>
-        ${regalosCard.length ? `<button type="button" class="gift-ribbon" aria-label="Ver regalo incluido"><span class="gift-ribbon-band">${ICONO_REGALO}Regalo</span></button>` : ""}
+        ${regalosCard.length ? `<button type="button" class="gift-ribbon" aria-label="Ver el regalo"><span class="gift-ribbon-band">${ICONO_REGALO}Regalo</span></button>` : ""}
         <div class="product-card-head">
           ${etiqueta}
           <h3 class="product-card-name">${p.nombre}</h3>
