@@ -702,6 +702,22 @@ html[data-glass="liquid"] .hero-btn--ghost {
 /* Catálogo: encabezado compacto para que filtros y grilla entren en el primer pantallazo */
 .page-hero--compact { padding: calc(var(--header-space) + 48px) 0 32px; }
 .page-hero--compact .lede { max-width: none; font-size: var(--fs-body); }
+/* Catálogo: sin la línea pequeña sobre el título, menos aire arriba */
+#catalogo-hero.page-hero--compact { padding-top: calc(var(--header-space) + 24px); }
+
+/* Plan Canje y Nosotros: héroe más bajo, título en dos líneas en computadora, una sola línea de apoyo */
+.page-hero--tight { padding: calc(var(--header-space) + 40px) 0 48px; }
+.page-hero--tight h1 { max-width: none; font-size: clamp(24px, 7vw, 30px); letter-spacing: 0.02em; }
+.page-hero--tight .lede { margin-top: 16px; max-width: 58ch; font-size: 16px; font-weight: 300; }
+.page-hero--tight .btn { margin-top: 24px; }
+.h1-linea { display: inline; }
+@media (min-width: 768px) {
+  .page-hero--tight { padding: calc(var(--header-space) + 32px) 0 56px; }
+  .page-hero--tight h1 { font-size: clamp(28px, 3.4vw, 44px); letter-spacing: 0.015em; }
+  .page-hero--tight .h1-linea { display: block; white-space: nowrap; }
+  .page-hero--tight .lede { max-width: none; font-size: 18px; white-space: nowrap; }
+  .page-hero--tight .btn { margin-top: 28px; }
+}
 
 /* ==========================================================================
    CARDS DE PRODUCTO — blanca, esquinas de 24px, casi tan ancha como alta (~4:5).
