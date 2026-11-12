@@ -61,22 +61,26 @@
   }
 
   /* ---------- aviso breve ---------- */
-  function avisar(texto) {
+  function avisar(texto, ok) {
     if (!toast) {
       toast = document.createElement("div");
       toast.className = "pedido-toast";
       toast.setAttribute("role", "status");
+      toast.setAttribute("aria-live", "polite");
       toast.innerHTML = '<span class="pedido-toast-txt"></span><button type="button" class="pedido-toast-ver">Ver pedido</button>';
       $(".pedido-toast-ver", toast).addEventListener("click", () => { toast.classList.remove("is-show"); abrir(); });
     }
     const d = $("dialog[open]"); // sobre un detalle modal el aviso va dentro (el resto de la página está inerte)
     (d || document.body).append(toast);
     toast.classList.toggle("in-dialog", !!d);
-    $(".pedido-toast-txt", toast).textContent = texto;
+    toast.classList.toggle("is-ok", !!ok);
+    const txt = $(".pedido-toast-txt", toast);
+    if (ok) txt.innerHTML = '<span class="t-l">' + texto + '</span><span class="t-c">Agregado al pedido</span>'; // ≤340px: versión corta
+    else txt.textContent = texto;
     void toast.offsetWidth;
     toast.classList.add("is-show");
     clearTimeout(tTimer);
-    tTimer = setTimeout(() => toast.classList.remove("is-show"), 3000);
+    tTimer = setTimeout(() => toast.classList.remove("is-show"), 3500); // otro aviso reinicia el temporizador (un solo aviso)
   }
 
   /* ---------- agregar ---------- */
@@ -105,7 +109,7 @@
     const card = b.closest(".product-card");
     if (card) c = Math.max(0, [...card.querySelectorAll(".color-swatch")].findIndex((s) => s.classList.contains("is-active")));
     const r = await agregar(b.dataset.add, c);
-    avisar(MSG[r]);
+    avisar(MSG[r], r === "ok");
     if (r === "ok" && !b.dataset.fb) { // «Agregado ✓» 1,2 s
       const t = $(".add-txt", b), o = t.textContent;
       b.dataset.fb = "1"; t.textContent = "Agregado "; const ck = document.createElement("span"); ck.className = "add-check"; ck.textContent = "✓"; t.append(ck);
