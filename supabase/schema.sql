@@ -23,6 +23,9 @@ create table if not exists public.productos (
 -- Moneda del producto (precio_num y precio_anterior). Idempotente: en tablas ya creadas agrega la columna; los existentes quedan en ARS.
 alter table public.productos add column if not exists moneda text not null default 'ARS' check (moneda in ('ARS', 'USD'));
 
+-- Estado del producto (Nuevo / Usado). Idempotente: en tablas ya creadas agrega la columna; los existentes quedan en 'nuevo'.
+alter table public.productos add column if not exists condicion text not null default 'nuevo' check (condicion in ('nuevo', 'usado'));
+
 create index if not exists productos_orden_idx on public.productos (orden);
 
 create or replace function public.set_updated_at()

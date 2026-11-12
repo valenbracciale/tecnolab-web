@@ -949,7 +949,7 @@ document.addEventListener("DOMContentLoaded", () => {
             style="--swatch: ${color.hex}" data-img="${escAttr(colorImg(p, i))}" data-alt="${escAttr(p.nombre + " color " + color.nombre.toLowerCase())}"
             aria-label="${escAttr(color.nombre)}" aria-pressed="${i === 0}" title="${escAttr(color.nombre)}"></button>`).join("")}
         </div>`
-      : `<div class="color-swatches-slot" aria-hidden="true"></div>`; // reserva el alto de los puntos: las fotos de todas las cards miden igual
+      : ""; // los puntos van en columna sobre el borde izquierdo de la foto: no ocupan alto propio
     const esAccesorio = p.categoria === "Accesorios";
     const pr = precioDe(p);
     // «Consultar» como precio comparte la fila con el botón: va un poco más chico para que quepan en cards angostas
@@ -970,8 +970,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnAgregar = `<button type="button" class="btn btn-primary product-card-add" data-add="${escAttr(p.id)}"${usado ? " data-usado" : ""}>${ICONO_MAS}<span class="add-txt">Agregar</span></button>`;
     const pie = enOferta
       ? `<div class="product-card-foot oferta-foot">
-          <p class="oferta-foot-tag">${ICONO_RAYO}Oportunidad del día</p>
-          <p class="oferta-foot-price"><strong><span class="sr-only">Precio ahora: </span>${pr.texto}</strong><s><span class="sr-only">Precio anterior: </span>${formatearPrecio(p.precioAnterior, p.moneda)}</s></p>
+          <p class="product-card-price"><small class="oferta-tag">${ICONO_RAYO}Oportunidad del día</small><span class="oferta-row"><strong><span class="sr-only">Precio ahora: </span>${pr.texto}</strong><s><span class="sr-only">Precio anterior: </span>${formatearPrecio(p.precioAnterior, p.moneda)}</s></span></p>
           ${btnAgregar}
         </div>`
       : `<div class="product-card-foot">
@@ -996,8 +995,8 @@ document.addEventListener("DOMContentLoaded", () => {
             : `<div class="product-card-media-placeholder">${p.categoria === "iPhone" ? ICONO_TELEFONO : ICONO_CAJA}<span>Foto próximamente</span></div>`
           }
           ${regalosCard.length ? giftOverlayHTML(regalosCard) : ""}
+          ${swatches}
         </div>
-        ${swatches}
         ${pie}
       </article>`;
   }
@@ -1250,46 +1249,43 @@ document.addEventListener("DOMContentLoaded", () => {
       subTabs.innerHTML = [btnFiltro("catalog-subtab", "all", "Todas", activeSub === "all"), ...subcategorias.map((s) => btnFiltro("catalog-subtab", s, s, activeSub === s))].join("");
     }
 
-    // Filtro de condición: solo existe si hay al menos un usado cargado (chips Nuevos / Usados, combinables)
-    let activeCond = "all";
-    let condTabs = null;
-    if (filterTabs && productos.some(esUsado)) {
-      condTabs = document.createElement("div");
-      condTabs.className = "catalog-filter-tabs catalog-condtabs";
-      condTabs.setAttribute("role", "group");
-      condTabs.setAttribute("aria-label", "Filtrar por condición");
-      condTabs.innerHTML = btnFiltro("catalog-condtab", "nuevo", "Nuevos", false) + btnFiltro("catalog-condtab", "usado", "Usados", false);
-      filterTabs.after(condTabs);
-      if (/^usados?$/i.test(params.get("cond") || "")) activeCond = "usado";
-      else if (/^nuevos?$/i.test(params.get("cond") || "")) activeCond = "nuevo";
-      condTabs.querySelectorAll(".catalog-filter-tab").forEach((t) => {
-        const on = t.dataset.value === activeCond;
-        t.classList.toggle("is-active", on);
-        t.setAttribute("aria-pressed", String(on));
+    const activar = (grupo, btn) => {
+      grupo.querySelectorAll(".catalog-filter-tab").forEach((t) => {
+        t.classList.toggle("is-active", t === btn);
+        t.setAttribute("aria-pressed", String(t === btn));
       });
+    };
+    const searchClear = document.querySelector(".catalog-search-clear");
+    const emptyClear = emptyEl ? emptyEl.querySelector(".catalog-empty-clear") : null;
+    // Filtro de estado (iPhone): segunda fila Todos / Nuevos / Usados, solo con la categoría iPhone activa. ?cond=usado|nuevo
+    const condTabs = document.querySelector(".catalog-condtabs");
+    let activeCond = /^usados?$/i.test(params.get("cond") || "") ? "usado" : /^nuevos?$/i.test(params.get("cond") || "") ? "nuevo" : "all";
+    if (activeCond !== "all" && activeCat === "all") activeCat = categorias.find((c) => normalizar(c) === "iphone") || "all";
+    if (activeCat !== "iPhone") activeCond = "all";
+    if (condTabs) {
+      condTabs.innerHTML = btnFiltro("catalog-subtab", "all", "Todos", activeCond === "all") + btnFiltro("catalog-subtab", "nuevo", "Nuevos", activeCond === "nuevo") + btnFiltro("catalog-subtab", "usado", "Usados", activeCond === "usado");
       condTabs.addEventListener("click", (e) => {
         const btn = e.target.closest(".catalog-filter-tab");
         if (!btn) return;
-        activeCond = activeCond === btn.dataset.value ? "all" : btn.dataset.value; // volver a tocarlo lo desactiva
-        condTabs.querySelectorAll(".catalog-filter-tab").forEach((t) => {
-          const on = t.dataset.value === activeCond;
-          t.classList.toggle("is-active", on);
-          t.setAttribute("aria-pressed", String(on));
-        });
+        activeCond = btn.dataset.value;
+        activar(condTabs, btn);
         applyCatalogFilter();
       });
     }
 
     const applyCatalogFilter = () => {
-      const esAccesorios = activeCat === "Accesorios";
-      if (subRow) subRow.hidden = !esAccesorios;
+      const esAccesorios = activeCat === "Accesorios", esIphone = activeCat === "iPhone";
+      if (subTabs) subTabs.hidden = !esAccesorios;
+      if (condTabs) condTabs.hidden = !esIphone;
+      if (subRow) subRow.hidden = !(esAccesorios || esIphone);
       const terminos = normalizar(filterSearch ? filterSearch.value.trim() : "").split(/\s+/).filter(Boolean);
+      if (searchClear) searchClear.hidden = !(filterSearch && filterSearch.value);
       let visible = 0;
       catalogGrid.querySelectorAll(".product-card").forEach((card) => {
         const okCat = activeCat === "all" || card.dataset.categoria === activeCat;
         const okSub = !esAccesorios || activeSub === "all" || card.dataset.subcategoria === activeSub;
         const okQuery = terminos.every((t) => card.dataset.busqueda.includes(t));
-        const okCond = activeCond === "all" || card.dataset.condicion === activeCond;
+        const okCond = !esIphone || activeCond === "all" || card.dataset.condicion === activeCond;
         const show = okCat && okSub && okQuery && okCond;
         card.style.display = show ? "" : "none";
         if (show) visible++;
@@ -1303,18 +1299,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
-    const activar = (grupo, btn) => {
-      grupo.querySelectorAll(".catalog-filter-tab").forEach((t) => {
-        t.classList.toggle("is-active", t === btn);
-        t.setAttribute("aria-pressed", String(t === btn));
-      });
-    };
     if (filterTabs) {
       filterTabs.addEventListener("click", (e) => {
         const btn = e.target.closest(".catalog-filter-tab");
         if (!btn) return;
         activeCat = btn.dataset.value;
         activar(filterTabs, btn);
+        if (activeCat !== "iPhone") { activeCond = "all"; if (condTabs) activar(condTabs, condTabs.querySelector('[data-value="all"]')); }
         if (activeCat !== "Accesorios") { // al salir de Accesorios, la fila de chips se oculta y se resetea
           activeSub = "all";
           if (subTabs) activar(subTabs, subTabs.querySelector('[data-value="all"]'));
@@ -1331,7 +1322,23 @@ document.addEventListener("DOMContentLoaded", () => {
         applyCatalogFilter();
       });
     }
-    if (filterSearch) filterSearch.addEventListener("input", applyCatalogFilter);
+    // Búsqueda: debounce de 150 ms; solo muestra/oculta cards ya renderizadas (sin re-render: no mueve el foco ni el scroll)
+    let debounce = 0;
+    if (filterSearch) filterSearch.addEventListener("input", () => {
+      if (searchClear) searchClear.hidden = !filterSearch.value;
+      clearTimeout(debounce);
+      debounce = setTimeout(applyCatalogFilter, 150);
+    });
+    if (searchClear) searchClear.addEventListener("click", () => { filterSearch.value = ""; applyCatalogFilter(); filterSearch.focus({ preventScroll: true }); });
+    const limpiarTodo = () => {
+      if (filterSearch) filterSearch.value = "";
+      activeCat = "all"; activeSub = "all"; activeCond = "all";
+      if (filterTabs) activar(filterTabs, filterTabs.querySelector('[data-value="all"]'));
+      if (subTabs) activar(subTabs, subTabs.querySelector('[data-value="all"]'));
+      if (condTabs) activar(condTabs, condTabs.querySelector('[data-value="all"]'));
+      applyCatalogFilter();
+    };
+    if (emptyClear) emptyClear.addEventListener("click", limpiarTodo);
     applyCatalogFilter();
   }
 

@@ -1,15 +1,20 @@
-/* Tarjeta flotante de promociones (solo index.html y catalogo.html). Los datos viven en js/promos-data.js.
-   No bloqueante (role="dialog" aria-modal="false"): no atrapa ni mueve el foco. El DOM se crea al dispararse,
-   no al cargar la página. Solo transform y opacity; will-change únicamente durante la animación. */
+/* Pop-up promocional centrado (solo index.html y catalogo.html). Los datos viven en js/promos-data.js.
+   Modal (role="dialog" aria-modal="true") sobre un fondo oscuro: foco al abrir, trampa de foco, Esc / clic en el fondo / ✕
+   para cerrar, devolución del foco y scroll del fondo bloqueado sin salto de layout. Aparece a los 4 s o al 25 % de scroll
+   (lo que ocurra primero), una vez por sesión; si se cierra, no vuelve durante frecuenciaHoras (24 h). Solo transform y opacity. */
 (function () {
   "use strict";
   if (typeof PROMOS === "undefined" || typeof promoVigente !== "function") return;
-  const SALIDA_MS = 320, UMBRAL_ARRASTRE = 60;
+  const SALIDA_MS = 220, RETRASO_MS = 4000;
   const $ = (s, r) => (r || document).querySelector(s);
   const pagina = (location.pathname.split("/").pop() || "index.html").replace(/\.html$/, "") || "index";
   const reducido = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
   const clave = (promo) => "tecnolab_promo_" + promo.id;
   const mem = {}; // respaldo si localStorage está bloqueado (vale solo para esta página)
+  let vistaSesion = false; // respaldo si sessionStorage está bloqueado
+  const claveSes = (promo) => "tecnolab_promo_sesion_" + promo.id;
+  function vistaEnSesion(promo) { let v = vistaSesion; try { v = v || sessionStorage.getItem(claveSes(promo)) === "1"; } catch (e) { /* bloqueado */ } return v; }
+  function marcarSesion(promo) { vistaSesion = true; try { sessionStorage.setItem(claveSes(promo), "1"); } catch (e) { /* bloqueado */ } }
 
   function vistaReciente(promo) {
     const horas = (promo.popup && promo.popup.frecuenciaHoras) || 0;
@@ -22,30 +27,29 @@
     try { localStorage.setItem(clave(promo), String(Date.now())); } catch (e) { /* bloqueado */ }
   }
 
-  const promo = promoVigente(new Date()).find((p) => p.popup && p.popup.mostrar === true && (p.popup.paginas || []).includes(pagina) && !vistaReciente(p));
+  const promo = promoVigente(new Date()).find((p) => p.popup && p.popup.mostrar === true && (p.popup.paginas || []).includes(pagina) && !vistaReciente(p) && !vistaEnSesion(p));
   if (!promo) return;
 
-  /* ---------- cuándo aparece: retraso Y (scroll ≥ 25 % o clic); sin otro diálogo ni aviso encima ---------- */
-  let pasoRetraso = false, huboInteraccion = false, tarjeta = null, espera = 0;
+  /* ---------- cuándo aparece: a los 4 s O al 25 % de scroll (lo primero); sin otro diálogo ni aviso encima ---------- */
+  let disparado = false, tarjeta = null, overlay = null, espera = 0, foco0 = null;
   const bloqueado = () => !!$("dialog[open]") || !!$(".pedido-toast.is-show");
   function intentar() {
-    if (tarjeta || !pasoRetraso || !huboInteraccion || espera) return;
+    if (tarjeta || !disparado || espera) return;
     if (!bloqueado()) { mostrar(); return; }
     espera = setInterval(() => { if (!bloqueado()) { clearInterval(espera); espera = 0; mostrar(); } }, 400); // espera a que se cierre
   }
   const alScroll = () => {
     const max = document.documentElement.scrollHeight - innerHeight;
-    if (max > 0 && scrollY / max >= 0.25) interaccion();
+    if (max > 0 && scrollY / max >= 0.25) disparar();
   };
-  const interaccion = () => {
-    if (huboInteraccion) return;
-    huboInteraccion = true;
-    removeEventListener("scroll", alScroll); removeEventListener("pointerdown", interaccion);
+  const disparar = () => {
+    if (disparado) return;
+    disparado = true;
+    removeEventListener("scroll", alScroll);
     intentar();
   };
   addEventListener("scroll", alScroll, { passive: true });
-  addEventListener("pointerdown", interaccion, { passive: true });
-  setTimeout(() => { pasoRetraso = true; intentar(); }, ((promo.popup && promo.popup.retrasoSeg) || 0) * 1000);
+  setTimeout(disparar, RETRASO_MS);
 
   /* ---------- tarjeta ---------- */
   const ICONOS = {
@@ -71,10 +75,13 @@
     const wa = c.mensaje && typeof SITE_CONFIG !== "undefined" ? "https://wa.me/" + SITE_CONFIG.whatsappNumber + "?text=" + encodeURIComponent(c.mensaje) : "";
     let n = 0;
     const st = () => ' data-st style="--i:' + n++ + '"'; // elementos que entran escalonados
+    overlay = document.createElement("div");
+    overlay.className = "promo-overlay";
     tarjeta = document.createElement("div");
     tarjeta.className = "promo-card";
     tarjeta.setAttribute("role", "dialog");
-    tarjeta.setAttribute("aria-modal", "false");
+    tarjeta.setAttribute("aria-modal", "true");
+    tarjeta.tabIndex = -1;
     tarjeta.setAttribute("aria-labelledby", "promo-titulo");
     tarjeta.innerHTML =
       '<button type="button" class="promo-cerrar" aria-label="Cerrar promoción"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>' +
@@ -89,68 +96,60 @@
       '<div class="promo-acciones"' + st() + ">" +
       (wa ? '<a class="btn btn-primary promo-cta" href="' + wa + '" target="_blank" rel="noopener">' + esc(c.texto || "Consultar por WhatsApp") + "</a>" : "") +
       '<a class="promo-ver" href="catalogo.html">Ver equipos</a></div>';
-    document.body.append(tarjeta);
-    recordar(promo);
-    tarjeta.classList.add("is-anim", "is-in");
-    const fin = () => tarjeta && tarjeta.classList.remove("is-anim");
-    tarjeta.addEventListener("animationend", (e) => { if (e.target === tarjeta) fin(); });
-    setTimeout(fin, 800);
+    overlay.append(tarjeta);
+    foco0 = document.activeElement;
+    bloquearScroll();
+    document.body.append(overlay);
+    marcarSesion(promo);
+    tarjeta.classList.add("is-in");
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
     $(".promo-cerrar", tarjeta).addEventListener("click", () => cerrar());
     const cta = $(".promo-cta", tarjeta);
     if (cta) cta.addEventListener("click", () => { recordar(promo); cerrar(); });
     document.addEventListener("keydown", alTeclado);
-    arrastre(tarjeta);
+    (cta || $(".promo-cerrar", tarjeta)).focus({ preventScroll: true });
   }
-  const alTeclado = (e) => { if (e.key === "Escape" && tarjeta) cerrar(); };
+  const FOCABLES = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  function alTeclado(e) {
+    if (!tarjeta) return;
+    if (e.key === "Escape") { e.preventDefault(); cerrar(); return; }
+    if (e.key !== "Tab") return;
+    const f = Array.from(tarjeta.querySelectorAll(FOCABLES)).filter((x) => x.offsetParent !== null);
+    if (!f.length) { e.preventDefault(); tarjeta.focus(); return; }
+    const p = f[0], u = f[f.length - 1];
+    if (e.shiftKey && (document.activeElement === p || !tarjeta.contains(document.activeElement))) { e.preventDefault(); u.focus(); }
+    else if (!e.shiftKey && (document.activeElement === u || !tarjeta.contains(document.activeElement))) { e.preventDefault(); p.focus(); }
+  }
+
+  /* ---------- scroll del fondo bloqueado, sin salto de layout (compensa el ancho de la barra de scroll) ---------- */
+  function bloquearScroll() {
+    const de = document.documentElement, barra = innerWidth - de.clientWidth;
+    de.classList.add("promo-abierto");
+    if (barra > 0) de.style.setProperty("--promo-barra", barra + "px");
+  }
+  function liberarScroll() {
+    const de = document.documentElement;
+    de.classList.remove("promo-abierto");
+    de.style.removeProperty("--promo-barra");
+  }
 
   function quitar() {
-    if (!tarjeta) return;
-    tarjeta.remove(); tarjeta = null;
+    if (!overlay) return;
+    overlay.remove(); overlay = null; tarjeta = null;
+    liberarScroll();
     document.removeEventListener("keydown", alTeclado);
+    if (foco0 && foco0.focus && document.contains(foco0)) { try { foco0.focus({ preventScroll: true }); } catch (e) { /* sin foco */ } }
+    foco0 = null;
   }
-  function cerrar(porArrastre) {
-    const t = tarjeta;
-    if (!t || t.dataset.saliendo) return;
-    t.dataset.saliendo = "1";
+  function cerrar() {
+    const o = overlay;
+    if (!o || o.dataset.saliendo) return;
+    o.dataset.saliendo = "1";
     recordar(promo);
-    t.classList.remove("is-in");
-    t.classList.add("is-anim");
-    if (!porArrastre) { t.style.transform = ""; t.classList.add("is-out"); } // por arrastre sale con la transición en línea
+    o.classList.add("is-out");
     let hecho = false;
-    const listo = () => { if (hecho) return; hecho = true; if (tarjeta === t) quitar(); };
-    t.addEventListener(porArrastre ? "transitionend" : "animationend", (e) => { if (e.target === t) listo(); });
+    const listo = () => { if (hecho) return; hecho = true; if (overlay === o) quitar(); };
+    o.addEventListener("animationend", (e) => { if (e.target === o) listo(); });
     setTimeout(listo, SALIDA_MS + 120); // respaldo
-  }
-
-  /* ---------- móvil: cerrar arrastrando hacia abajo (umbral 60 px, sigue al dedo) ---------- */
-  function arrastre(t) {
-    let y0 = null, dy = 0;
-    t.addEventListener("pointerdown", (e) => {
-      if (e.pointerType === "mouse" || !matchMedia("(max-width: 699px)").matches || e.target.closest("a, button")) return;
-      y0 = e.clientY; dy = 0;
-      try { t.setPointerCapture(e.pointerId); } catch (err) { /* puntero sintético */ }
-      t.style.transition = "none";
-    });
-    t.addEventListener("pointermove", (e) => {
-      if (y0 === null) return;
-      dy = Math.max(0, e.clientY - y0);
-      t.style.transform = "translateY(" + dy + "px)";
-      t.style.opacity = String(Math.max(0.35, 1 - dy / 320));
-    });
-    const soltar = () => {
-      if (y0 === null) return;
-      y0 = null;
-      if (dy > UMBRAL_ARRASTRE) { // salida suave desde donde quedó
-        t.style.transition = "transform " + SALIDA_MS + "ms cubic-bezier(0.4, 0, 1, 1), opacity " + SALIDA_MS + "ms cubic-bezier(0.4, 0, 1, 1)";
-        t.style.transform = "translateY(" + (dy + 140) + "px)";
-        t.style.opacity = "0";
-        cerrar(true);
-      } else { // vuelve a su lugar
-        t.style.transition = "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease";
-        t.style.transform = ""; t.style.opacity = "";
-      }
-    };
-    t.addEventListener("pointerup", soltar);
-    t.addEventListener("pointercancel", soltar);
   }
 })();

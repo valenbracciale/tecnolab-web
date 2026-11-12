@@ -8,8 +8,9 @@
   "use strict";
   if (typeof CATALOGO_DESTACADO === "undefined" || typeof SUPABASE_URL === "undefined" || typeof SUPABASE_ANON_KEY === "undefined") return;
 
-  const TIMEOUT_MS = 4000, CACHE_MS = 60000, CACHE_KEY = "tecnolab_productos_v2";
+  const TIMEOUT_MS = 4000, CACHE_MS = 60000, CACHE_KEY = "tecnolab_productos_v3";
   const COLUMNAS = "id,categoria,subcategoria,nombre,variante,especificacion,precio_num,precio_texto,regalo,disponible,oferta,precio_anterior,moneda,fotos,colores";
+  const COLUMNAS_COND = COLUMNAS + ",condicion"; // si la migración de «condicion» aún no se corrió en Supabase, se reintenta sin ella
 
   // Fotos del producto: urls con la principal (o la primera) al frente
   function urlsDe(fotos) {
@@ -50,7 +51,8 @@
         precio: r.precio_texto == null ? "Consultar" : r.precio_texto,
         precioNum: r.precio_num == null ? null : Number(r.precio_num),
         moneda: r.moneda === "USD" ? "USD" : "ARS", colores, disponible: r.disponible !== false, oferta: r.oferta === true,
-        precioAnterior: r.precio_anterior == null ? null : Number(r.precio_anterior), regalo: r.regalo === true
+        precioAnterior: r.precio_anterior == null ? null : Number(r.precio_anterior), regalo: r.regalo === true,
+        condicion: r.condicion === "usado" ? "usado" : "nuevo" // sin dato (respaldo / caché viejo) = nuevo
       };
       p.fotos = urlsDe(r.fotos);
       if (r.subcategoria) p.subcategoria = r.subcategoria;
@@ -87,11 +89,11 @@
 
   const ctrl = typeof AbortController === "function" ? new AbortController() : null;
   const t = setTimeout(() => { if (ctrl) ctrl.abort(); liberar(); }, TIMEOUT_MS);
-  fetch(SUPABASE_URL + "/rest/v1/productos?select=" + COLUMNAS + "&order=orden.asc", {
+  const pedir = (cols) => fetch(SUPABASE_URL + "/rest/v1/productos?select=" + cols + "&order=orden.asc", {
     headers: { apikey: SUPABASE_ANON_KEY, Accept: "application/json" },
     signal: ctrl ? ctrl.signal : undefined
-  })
-    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+  }).then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+  pedir(COLUMNAS_COND).catch(() => pedir(COLUMNAS))
     .then((filas) => { if (!liberado && aplicar(filas)) guardar(filas); })
     .catch(() => { /* respaldo: datos estáticos */ })
     .then(() => { clearTimeout(t); liberar(); });

@@ -841,8 +841,17 @@ html[data-glass="liquid"] .hero-btn--ghost {
 
 /* Puntos de color: círculo de 18px con área táctil de 28px */
 .color-swatches { display: flex; flex: 0 0 28px; height: 28px; align-items: center; justify-content: center; gap: 4px; margin: 8px 0 0; }
-.color-swatches-slot { display: none; flex: 0 0 28px; height: 28px; margin-top: 8px; }
-.has-swatches .color-swatches-slot { display: block; } /* si alguna card del listado tiene puntos, las demás reservan la fila (fotos alineadas) */
+/* En las cards: columna vertical sobre el borde izquierdo de la zona de la foto, centrada en vertical (círculo de 14px, gap de 8px) */
+.product-card-media .color-swatches {
+  position: absolute; left: 0; top: 50%; z-index: 3;
+  transform: translateY(-50%);
+  flex-direction: column; flex: 0 0 auto; height: auto; margin: 0; gap: 0;
+}
+.product-card-media .color-swatch { width: 22px; height: 22px; }
+.product-card-media .color-swatch::before { top: 4px; left: 4px; width: 14px; height: 14px; }
+.product-card-media .color-swatch.is-active::before { box-shadow: 0 0 0 2px var(--white), 0 0 0 3.5px var(--blue); }
+/* La foto deja lugar a los puntos con aire simétrico (queda centrada); todas las cards del listado igual, así miden lo mismo */
+.has-swatches .product-card-media img { box-sizing: border-box; padding: 0 26px; }
 .color-swatch {
   position: relative;
   z-index: 3;
@@ -1169,13 +1178,13 @@ html[data-glass="liquid"] .hero-btn--ghost {
 .catalog-page .container { max-width: calc(1192px + 2 * var(--space-gutter)); }
 
 /* Barra de filtros en el flujo normal (se desplaza con la página): sin sticky, fondo propio ni línea inferior. */
-.catalog-toolbar { position: static; }
+.catalog-toolbar { position: static; margin-top: 28px; }
 .catalog-toolbar-inner {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding-top: 6px;
-  padding-bottom: 6px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .catalog-filter-tabs {
   display: flex;
@@ -1208,19 +1217,26 @@ html[data-glass="liquid"] .hero-btn--ghost {
   border-color: var(--blue);
   color: var(--black);
 }
-/* Chips de condición (Nuevos / Usados): solo si hay usados */
-.catalog-condtabs { padding-left: 8px; border-left: 1px solid var(--line-strong); }
-@media (max-width: 699px) { .catalog-condtabs { padding-left: 0; border-left: 0; } }
 /* Segunda fila (subcategorías de Accesorios): más discreta, una sola línea con scroll horizontal */
-.catalog-subfilters { padding-top: 0; padding-bottom: 6px; }
+.catalog-subfilters { padding-top: 8px; padding-bottom: 0; }
+.catalog-subfilters .catalog-subtabs[hidden] { display: none; }
 .catalog-subtab { min-height: 28px; padding: 4px 12px; font-size: 12px; font-weight: 500; }
 .catalog-subtabs { flex-wrap: nowrap; overflow-x: auto; }
+.catalog-search { position: relative; margin-left: auto; flex: 0 1 260px; min-width: 160px; }
+.catalog-filter-search::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
+.catalog-search-clear {
+  position: absolute; top: 50%; right: 0; transform: translateY(-50%);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%; color: var(--fg-2);
+}
+.catalog-search-clear[hidden] { display: none; }
+.catalog-search-clear:hover { color: var(--fg); }
+.catalog-search-clear svg { width: 14px; height: 14px; }
 .catalog-filter-search {
-  margin-left: auto;
-  flex: 0 1 220px;
+  width: 100%;
   min-height: 32px;
   height: 32px;
-  padding: 0 14px;
+  padding: 0 34px 0 14px;
   border-radius: var(--radius-btn);
   border: 1px solid var(--line-strong);
   background: var(--white);
@@ -1233,9 +1249,14 @@ html[data-glass="liquid"] .hero-btn--ghost {
 
 @media (max-width: 699px) {
   /* categorías en una línea deslizable; el buscador queda debajo a todo el ancho */
+  .catalog-toolbar { margin-top: 20px; }
   .catalog-toolbar-inner { flex-wrap: wrap; gap: 8px; }
   .catalog-filter-tabs { flex: 1 1 100%; }
-  .catalog-filter-search { order: 2; flex: 1 1 100%; margin-left: 0; }
+  .catalog-filter-tab { min-height: 40px; }
+  .catalog-subtab { min-height: 36px; }
+  .catalog-search { order: 2; flex: 1 1 100%; margin-left: 0; }
+  .catalog-filter-search { height: 40px; min-height: 40px; font-size: 16px; } /* 16px: iOS no hace zoom al enfocar */
+  .catalog-search-clear { width: 40px; height: 40px; }
 }
 
 .catalog-grid {
@@ -1256,6 +1277,10 @@ html[data-glass="liquid"] .hero-btn--ghost {
 
 .catalog-empty { padding: var(--space-block) 0; text-align: center; }
 .catalog-empty p { margin-bottom: 24px; color: var(--fg); }
+.catalog-empty .catalog-empty-wa { margin: 20px 0 0; color: var(--fg-2); font-size: 14px; }
+.catalog-empty-link { display: inline-block; margin-top: 8px; font-weight: 600; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+/* menos aire entre los filtros y las cards (14px en total) */
+#catalogo-iphone .catalog-grid { padding-top: 14px; }
 .catalog-note { max-width: 70ch; margin-top: var(--space-block); }
 /* Hasta que el JS rinde las cards la nota queda invisible: así no salta cuando llegan (CLS). */
 .catalog-grid-full:empty ~ .catalog-note { visibility: hidden; }
@@ -1277,13 +1302,12 @@ html[data-glass="liquid"] .hero-btn--ghost {
 .is-compact .product-card .product-card-eyebrow { display: none; }
 .is-compact .product-card .product-card-name { margin-top: 0; height: auto; font-size: 15px; font-weight: 600; line-height: 1.25; letter-spacing: 0; }
 .is-compact .product-card .product-card-variant { margin-top: 2px; font-size: 12px; line-height: 1.3; }
-.is-compact .product-card .product-card-variant--vacio, .is-compact .product-card .product-card-price:has(.es-consulta), .is-compact .color-swatches-slot { display: none; }
+.is-compact .product-card .product-card-variant--vacio, .is-compact .product-card .product-card-price:has(.es-consulta) { display: none; }
 .is-compact .product-card .product-card-promo-slot { flex-basis: 24px; height: 24px; margin-top: 6px; }
 .is-compact .product-card .product-card-promo { height: 22px; padding: 0 8px; }
 .is-compact .product-card .product-card-promo .pp-largo { display: none; }
 .is-compact .product-card .product-card-promo .pp-corto { display: inline; }
 .is-compact .product-card .product-card-media { flex: 0 0 auto; aspect-ratio: 1 / 1; margin: 6px 0 0; }
-.is-compact .product-card .color-swatches { margin: 4px 0 0; }
 .is-compact .product-card .product-card-foot { margin-top: auto; padding-top: 6px; }
 .is-compact .product-card .product-card-price { margin-top: 0; }
 .is-compact .product-card .product-card-price small { font-size: 11px; }
@@ -1298,47 +1322,28 @@ html[data-glass="liquid"] .hero-btn--ghost {
    ========================================================================== */
 .product-card--oferta { --op: 24px; }
 .is-compact .product-card--oferta { --op: 12px; }
+/* Mismo tamaño y posiciones que el pie normal: solo cambia el fondo (el bloque sangra hasta los bordes de la card). */
 .product-card--oferta .product-card-foot.oferta-foot {
-  margin: auto calc(var(--op) * -1) calc(var(--op) * -1);
-  padding: 9px 12px 10px;
+  margin-left: calc(var(--op) * -1);
+  margin-right: calc(var(--op) * -1);
+  margin-bottom: calc(var(--op) * -1);
+  padding-left: var(--op);
+  padding-right: var(--op);
+  padding-bottom: var(--op);
   border-radius: 0 0 var(--radius-product) var(--radius-product);
   background: linear-gradient(135deg, var(--blue-on-light), var(--blue));
   color: var(--white);
-  gap: 0;
 }
-.oferta-foot-tag {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  line-height: 1.3;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--white);
-}
-.oferta-foot-tag svg { width: 9px; height: 11px; flex: 0 0 auto; fill: currentColor; }
-.oferta-foot-price {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  margin: 2px 0 0;
-  white-space: nowrap;
-}
-.oferta-foot-price strong { font-size: 20px; font-weight: 700; line-height: 1.2; color: var(--white); }
-.oferta-foot-price s { font-size: 11px; color: #CFEAFF; text-decoration: line-through; } /* tono claro del azul: no hay variable equivalente */
-.product-card--oferta .product-card-foot.oferta-foot .btn {
-  height: 38px;
-  min-height: 38px;
-  margin: 8px 0 0;
-  border-radius: 999px;
-  background: var(--white);
-  color: var(--blue-on-light);
-  font-weight: 600;
-}
+.oferta-foot .product-card-price, .oferta-foot .product-card-price small, .oferta-foot .product-card-price strong { color: var(--white); }
+.oferta-foot .oferta-tag { display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.oferta-foot .oferta-tag svg { width: 9px; height: 11px; flex: 0 0 auto; fill: currentColor; }
+.oferta-foot .oferta-row { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.oferta-foot .oferta-row strong { flex: 0 0 auto; }
+.oferta-foot .oferta-row s { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 500; line-height: 1.15; color: var(--white); opacity: 0.78; text-decoration: line-through; }
+.product-card--oferta .product-card-foot.oferta-foot .btn { background: var(--white); color: var(--blue-on-light); }
 .product-card--oferta .product-card-foot.oferta-foot .btn:focus-visible { outline-color: var(--white); }
-@media (hover: hover) { .product-card--oferta .product-card-foot.oferta-foot .btn:hover { background: var(--white); filter: brightness(0.94); } }
+@media (hover: hover) and (pointer: fine) { .product-card--oferta .product-card-foot.oferta-foot .btn:hover { background: var(--white); filter: brightness(0.94); } }
+.is-compact .oferta-foot .oferta-row s { font-size: 10px; }
 
 /* ==========================================================================
    CARDS EN CELULAR (≤640px): foto de alto fijo (--card-media-h), textos y paddings compactos, botón de 44px,
@@ -1365,16 +1370,8 @@ html[data-glass="liquid"] .hero-btn--ghost {
   .is-compact .product-card .product-card-price small { font-size: 10px; }
   .is-compact .product-card .product-card-price strong { font-size: 15px; }
   .is-compact .product-card .btn { height: 44px; min-height: 44px; margin-top: 6px; font-size: 14px; }
-  .is-compact .product-card .color-swatches { margin: 2px 0 0; }
   .catalog-grid, .catalog-cards-row { grid-auto-rows: 1fr; }
 
-  /* Pie azul compacto */
-  .is-compact .product-card--oferta .product-card-foot.oferta-foot { padding: 9px 12px 10px; }
-  .is-compact .oferta-foot-tag { font-size: 8.5px; }
-  .is-compact .oferta-foot-tag svg { width: 9px; height: 11px; }
-  .is-compact .oferta-foot-price strong { font-size: 16px; }
-  .is-compact .oferta-foot-price s { font-size: 9.5px; }
-  .is-compact .product-card--oferta .product-card-foot.oferta-foot .btn { height: 34px; min-height: 34px; margin-top: 6px; font-size: 13px; }
 
 }
 
@@ -2736,37 +2733,36 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
 
 .pedido-promo { margin: 0 0 8px; padding: 10px 12px; border-radius: 12px; background: rgba(4, 165, 255, 0.1); border: 1px solid rgba(4, 165, 255, 0.35); color: var(--fg); font-size: 13px; font-weight: 600; line-height: 1.4; }
 
-/* Tarjeta flotante: no bloqueante, position fixed (sin CLS) */
+/* Pop-up promocional: modal centrado sobre fondo oscuro (js/promos.js) */
+html.promo-abierto { overflow: hidden; padding-right: var(--promo-barra, 0px); }
+.promo-overlay {
+  position: fixed; inset: 0; z-index: 950;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--surface-0) 60%, transparent);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.promo-overlay.is-out { animation: promo-fade-out 220ms ease forwards; }
 .promo-card {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 950;
-  width: 360px;
-  max-width: calc(100% - 48px);
-  padding: 20px;
+  position: relative;
+  width: 100%; max-width: 440px; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 28px 24px 20px;
   border-radius: 22px;
   background: #fff;
   color: #1D1D1F;
   font-family: var(--font-family);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  outline: none;
 }
-.promo-card.is-anim { will-change: transform, opacity; }
-.promo-card.is-in { animation: promo-in 520ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-.promo-card.is-in [data-st] { animation: promo-in-st 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards; animation-delay: calc(120ms + var(--i, 0) * 50ms); }
-.promo-card.is-out { animation: promo-out 320ms cubic-bezier(0.4, 0, 1, 1) forwards; }
-@keyframes promo-in { from { opacity: 0; transform: translateY(28px) scale(0.96); } to { opacity: 1; transform: none; } }
-@keyframes promo-in-st { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes promo-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(16px) scale(0.98); } }
-@keyframes promo-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.promo-card.is-in { animation: promo-in 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+@keyframes promo-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: none; } }
 @keyframes promo-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes promo-latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
 @media (prefers-reduced-motion: reduce) {
-  .promo-card.is-in { animation: promo-fade-in 150ms linear backwards; }
-  .promo-card.is-in [data-st] { animation: none; }
-  .promo-card.is-out { animation: promo-fade-out 150ms linear forwards; }
+  .promo-card.is-in, .promo-overlay.is-out, .promo-cta { animation: none; }
 }
 .promo-cerrar { position: absolute; top: 4px; right: 4px; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; color: #1D1D1F; }
 .promo-cerrar:hover { background: rgba(0, 0, 0, 0.06); }
@@ -2776,19 +2772,18 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
 .promo-thumb { flex: 0 0 72px; width: 72px; height: 72px; border-radius: 16px; background: #F5F5F7; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .promo-thumb img { width: 100%; height: 100%; object-fit: contain; }
 .promo-info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.promo-titulo { color: #1D1D1F; font-size: 17px; line-height: 1.2; letter-spacing: -0.01em; margin: 0; text-transform: none; }
+.promo-titulo { color: #1D1D1F; font-size: 26px; font-weight: 600; line-height: 1.15; letter-spacing: -0.015em; margin: 0; text-transform: none; }
 .promo-texto { margin: 0; font-size: 14px; line-height: 1.4; color: #4A4A4F; }
 .promo-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .promo-chips li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 10px; border-radius: 999px; background: #F5F5F7; font-size: 13px; font-weight: 600; }
 .promo-chips svg { flex: 0 0 18px; color: #0079C2; }
 .promo-nota { margin: 0; font-size: 12px; line-height: 1.4; color: #4A4A4F; }
 .promo-acciones { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
-.promo-cta { width: 100%; }
+.promo-cta { width: 100%; animation: promo-latido 2.4s ease-in-out infinite; }
+.promo-cta:hover, .promo-cta:focus-visible { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .promo-cta { animation: none; } }
 .promo-ver { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; font-size: 14px; font-weight: 600; color: #0079C2; }
 .promo-ver:hover { text-decoration: underline; text-underline-offset: 4px; }
-@media (max-width: 699px) {
-  .promo-card { left: 8px; right: 8px; width: auto; max-width: none; bottom: calc(16px + env(safe-area-inset-bottom)); touch-action: none; }
-}
 
 /* ---- Hero del Home con producto: dos columnas (texto a la izquierda, PNG transparente a la derecha) ----
    Solo se activa cuando assets/images/hero-product.png existe y carga (index.html agrega .has-product al hero);

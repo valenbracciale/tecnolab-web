@@ -13,7 +13,7 @@
   const TIPOS = ["image/jpeg", "image/png", "image/webp"];
   const EXTS = ["jpg", "jpeg", "png", "webp"];
   const NUEVA = "__nueva__";
-  const COLUMNAS = "id,categoria,subcategoria,nombre,variante,especificacion,precio_num,precio_texto,moneda,regalo,disponible,orden,fotos,colores";
+  const COLUMNAS = "id,categoria,subcategoria,nombre,variante,especificacion,precio_num,precio_texto,moneda,condicion,regalo,disponible,orden,fotos,colores";
   const fmt = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 
   const $ = (id) => document.getElementById(id);
@@ -178,6 +178,7 @@
     $("f-subcategoria").value = nuevo ? "" : p.subcategoria || "";
     $("f-variante").value = nuevo ? "" : p.variante || "";
     $("f-especificacion").value = nuevo ? "" : p.especificacion || "";
+    $("f-condicion").value = !nuevo && p.condicion === "usado" ? "usado" : "nuevo";
     $("f-moneda").value = !nuevo && p.moneda === "USD" ? "USD" : "ARS";
     $("f-precio").value = !nuevo && p.precio_num !== null && Number.isFinite(Number(p.precio_num)) && Number(p.precio_num) > 0 ? precioTxt(p.precio_num, p.moneda) : "";
     $("f-regalo").checked = nuevo ? false : p.regalo === true;
@@ -344,7 +345,7 @@
         subcategoria: $("f-subcategoria").value.trim() || null,
         variante: $("f-variante").value.trim() || null,
         especificacion: $("f-especificacion").value.trim() || null,
-        precio_num: n, precio_texto: texto, moneda: m,
+        precio_num: n, precio_texto: texto, moneda: m, condicion: $("f-condicion").value === "usado" ? "usado" : "nuevo",
         regalo: $("f-regalo").checked, disponible: $("f-disponible").checked,
         fotos: ed.fotos.map((f) => ({ url: f.url, path: f.path, principal: f.principal === true }))
       }
