@@ -156,8 +156,10 @@ body {
   font-weight: var(--fw-body);
   line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  overflow-x: hidden; /* respaldo */
+  overflow-x: clip;   /* iOS: hidden solo en body no alcanza; clip no crea scroll container */
 }
+html { overflow-x: hidden; overflow-x: clip; }
 img { max-width: 100%; display: block; }
 a { text-decoration: none; color: inherit; }
 ul, ol { list-style: none; margin: 0; padding: 0; }
@@ -1179,6 +1181,12 @@ html[data-glass="liquid"] .hero-btn--ghost {
 
 /* Barra de filtros en el flujo normal (se desplaza con la página): sin sticky, fondo propio ni línea inferior. */
 .catalog-toolbar { position: static; margin-top: 28px; }
+/* Escritorio: el margin-top del toolbar se fusionaba con el de la sección (la sección no tiene padding ni borde arriba) y
+   el espacio quedaba fuera de ella, sin verse. Con padding-top en la propia sección el aire de 28px queda adentro. */
+@media (min-width: 769px) {
+  .catalog-page { padding-top: 28px; }
+  .catalog-toolbar { margin-top: 0; }
+}
 .catalog-toolbar-inner {
   display: flex;
   align-items: center;
@@ -1218,7 +1226,7 @@ html[data-glass="liquid"] .hero-btn--ghost {
   color: var(--black);
 }
 /* Segunda fila (subcategorías de Accesorios): más discreta, una sola línea con scroll horizontal */
-.catalog-subfilters { padding-top: 8px; padding-bottom: 0; }
+.catalog-subfilters { padding-top: 10px; padding-bottom: 0; }
 .catalog-subfilters .catalog-subtabs[hidden] { display: none; }
 .catalog-subtab { min-height: 28px; padding: 4px 12px; font-size: 12px; font-weight: 500; }
 .catalog-subtabs { flex-wrap: nowrap; overflow-x: auto; }
@@ -1279,6 +1287,16 @@ html[data-glass="liquid"] .hero-btn--ghost {
 .catalog-empty p { margin-bottom: 24px; color: var(--fg); }
 .catalog-empty .catalog-empty-wa { margin: 20px 0 0; color: var(--fg-2); font-size: 14px; }
 .catalog-empty-link { display: inline-block; margin-top: 8px; font-weight: 600; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+/* Listón REGALO (escritorio / listado sin .is-compact): el título y la variante dejan lugar a la cinta y, si no entran, bajan a otra línea (sin achicar la fuente) */
+.catalog-grid:not(.is-compact) .product-card:has(.gift-ribbon) .product-card-name,
+.catalog-cards-row:not(.is-compact) .product-card:has(.gift-ribbon) .product-card-name {
+  height: auto; min-height: 28px; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere;
+  padding-right: calc(var(--ribbon-w) * 0.8);
+}
+.catalog-grid:not(.is-compact) .product-card:has(.gift-ribbon) .product-card-variant,
+.catalog-cards-row:not(.is-compact) .product-card:has(.gift-ribbon) .product-card-variant {
+  white-space: normal; overflow: visible; text-overflow: clip; padding-right: calc(var(--ribbon-w) * 0.8);
+}
 /* menos aire entre los filtros y las cards (14px en total) */
 #catalogo-iphone .catalog-grid { padding-top: 14px; }
 .catalog-note { max-width: 70ch; margin-top: var(--space-block); }
@@ -2316,7 +2334,6 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
 .franja-pista {
   display: flex;
   width: max-content;
-  will-change: transform;
   animation: franja-loop var(--loop, 96s) linear infinite;
 }
 @keyframes franja-loop { to { transform: translateX(-50%); } }
@@ -2834,3 +2851,65 @@ html.promo-abierto { overflow: hidden; padding-right: var(--promo-barra, 0px); }
 .product-dialog-media .pd-thumb img { position: static; width: 100%; height: 100%; padding: 4px; object-fit: contain; }
 .product-dialog-media .pd-thumb.is-active { border-color: var(--blue); }
 .product-dialog-media .pd-thumb:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* ==========================================================================
+   CELULAR (≤768px): card compacta, fotos de clientes en grilla y menú de vidrio
+   ========================================================================== */
+.nav-wa, .nav-m-scrim { display: none; }
+@media (max-width: 768px) {
+  /* 1. Card: la altura sale del contenido. El carrusel ya no reserva 520px (estiraba las cards y dejaba un hueco entre foto y precio) */
+  .catalog-cards-row { min-height: 400px; }
+  .is-compact .product-card { height: auto; min-height: 0; aspect-ratio: auto; }
+  .is-compact .product-card .product-card-media { flex: 0 0 160px; height: 160px; min-height: 0; aspect-ratio: auto; margin: 4px 0 0; }
+  .is-compact .product-card .product-card-media img { object-fit: contain; }
+
+  /* 2. Clientes: grilla de 2 columnas bajo el texto, fotos al 100% de opacidad (sin capa animada) */
+  .opiniones-fx { display: none; }
+  .opiniones-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: none; margin: 32px 0 0; }
+  .opiniones-strip li { border-radius: var(--radius-card); box-shadow: none; opacity: 1; }
+
+  /* 3. Menú: píldora de vidrio conectada al header. backdrop-filter solo mientras está abierto */
+  .logo, .header-cta { position: relative; z-index: 2; }
+  .main-nav {
+    position: fixed; inset: auto; top: var(--header-top); left: 8px; right: 8px; /* mismos márgenes que el header */
+    height: auto; max-height: calc(100dvh - var(--header-top) - 12px);
+    padding: calc(var(--header-h) + 8px) 20px 20px;
+    z-index: 0;
+    background: color-mix(in srgb, var(--white) 72%, transparent);
+    border: 1px solid color-mix(in srgb, var(--white) 60%, transparent);
+    border-radius: var(--header-radius);
+    box-shadow: var(--hdr-shadow);
+    overflow-y: auto; overscroll-behavior: contain;
+    visibility: hidden; opacity: 0;
+    transform: translateY(-8px) scale(0.98); transform-origin: top center;
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 260ms ease, visibility 0s linear 260ms;
+  }
+  .main-nav.is-open {
+    visibility: visible; opacity: 1; transform: none;
+    -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 260ms ease, visibility 0s;
+  }
+  /* Abierto, el header y el menú son una sola pieza: el vidrio del header se apaga y su fila pasa a tema claro */
+  html.nav-open .site-header { --hdr-fg: var(--surface-0); --hdr-fg-2: var(--text-2); --hdr-tint: transparent; }
+  html.nav-open .site-header::before { opacity: 0; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+  html.nav-open .site-header .logo img { filter: brightness(0); }
+  .main-nav > ul { gap: 16px; }
+  .nav-link { min-height: 44px; font-size: 20px; font-weight: 600; color: var(--surface-0); }
+  .nav-link.is-active { color: var(--blue-on-light); text-decoration: underline; text-decoration-color: var(--blue); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+  .nav-panel { padding: 0 0 8px 16px; }
+  .nav-panel a, .nav-panel-links a { color: var(--text-2); }
+  .nav-panel-heading { min-height: 40px; font-size: 16px; font-weight: 600; color: var(--surface-0) !important; }
+  .nav-panel-links a { min-height: 40px; font-size: 15px; font-weight: 500; }
+  .nav-panel-all { min-height: 44px; margin-top: 4px; justify-content: flex-start; background: none; color: var(--blue-on-light) !important; font-size: 15px; font-weight: 600; }
+  .nav-wa { display: inline-flex; width: 100%; margin-top: 16px; }
+  .nav-m-scrim {
+    display: block; position: fixed; inset: 0; z-index: 999;
+    background: color-mix(in srgb, var(--surface-0) 35%, transparent);
+    opacity: 0; visibility: hidden;
+    transition: opacity 260ms ease, visibility 0s linear 260ms;
+  }
+  html.nav-open .nav-m-scrim { opacity: 1; visibility: visible; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: opacity 260ms ease, visibility 0s; }
+}
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .main-nav, .main-nav.is-open, .nav-m-scrim, html.nav-open .nav-m-scrim { transition: none; transform: none; }
+}

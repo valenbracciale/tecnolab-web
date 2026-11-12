@@ -107,23 +107,35 @@ document.addEventListener("DOMContentLoaded", () => {
   const navToggle = document.querySelector(".nav-toggle");
   const mainNav = document.querySelector(".main-nav");
   if (navToggle && mainNav) {
-    const setNav = (open) => {
+    // Celular (≤768): botón de WhatsApp al final del menú y capa que oscurece el resto de la página (clic = cerrar)
+    const wa = document.createElement("a");
+    wa.className = "btn btn-primary nav-wa";
+    wa.target = "_blank"; wa.rel = "noopener"; wa.textContent = "WhatsApp";
+    wa.dataset.wa = "Hola, quiero hacer una consulta";
+    wa.href = "https://wa.me/5492614699026";
+    mainNav.append(wa);
+    const navScrim = document.createElement("div");
+    navScrim.className = "nav-m-scrim";
+    navScrim.setAttribute("aria-hidden", "true");
+    document.body.append(navScrim);
+    const setNav = (open, devolverFoco) => {
       mainNav.classList.toggle("is-open", open);
       document.documentElement.classList.toggle("nav-open", open);
       navToggle.setAttribute("aria-expanded", String(open));
       navToggle.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
       // el nav está antes que el botón en el DOM: al abrir, el foco pasa al primer link
       if (open) mainNav.querySelector("a")?.focus();
+      else if (devolverFoco) navToggle.focus();
     };
-    navToggle.addEventListener("click", () => setNav(!mainNav.classList.contains("is-open")));
+    navToggle.addEventListener("click", () => { const abrir = !mainNav.classList.contains("is-open"); setNav(abrir, !abrir); });
+    navScrim.addEventListener("click", () => setNav(false, true));
     mainNav.querySelectorAll("a").forEach((link) => {
       link.addEventListener("click", () => setNav(false));
     });
     // Escape cierra el menú y devuelve el foco al botón
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape" || !mainNav.classList.contains("is-open")) return;
-      setNav(false);
-      navToggle.focus();
+      setNav(false, true);
     });
   }
 
@@ -169,8 +181,12 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     observar();
     window.addEventListener("resize", observar);
+    // Al volver a la pestaña, desde la caché de página (bfcache de iOS) o al rotar, el estado del header se recalcula
+    window.addEventListener("pageshow", observar);
+    window.addEventListener("orientationchange", observar);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) observar(); });
   }
-  initHeaderTheme();
+  try { initHeaderTheme(); } catch (e) { /* mejora secundaria: no corta el resto del script */ }
 
   /* ============================================================
      HEADER LIQUID GLASS — mejora progresiva. html[data-glass="liquid"] solo en Chromium de
@@ -311,7 +327,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let t = 0;
     window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(aplicar, 150); });
   }
-  initHeaderGlass();
+  try { initHeaderGlass(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
   /* ============================================================
      CARDS 3D — la card (producto o categoría) se inclina siguiendo el mouse: perspective +
@@ -435,7 +451,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     window.addEventListener("blur", soltar);
   }
-  initCardTilt();
+  try { initCardTilt(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
   /* ============================================================
      PANEL «CATÁLOGO» — en escritorio, un panel de vidrio bajo el header con las líneas de
@@ -559,7 +575,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     window.addEventListener("resize", () => { if (abierto()) cerrar(false); });
   }
-  initNavCatalogo();
+  try { initNavCatalogo(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
   /* ============================================================
      DETALLE DE PRODUCTO — <dialog> modal que se abre al tocar una card (Home y catálogo).
@@ -811,7 +827,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("hashchange", desdeHash);
     desdeHash();
   }
-  initDetalleProducto();
+  try { initDetalleProducto(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
   /* ============================================================
      WHATSAPP — todos los links [data-wa] se arman acá con el número de
@@ -1036,7 +1052,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const w = c.offsetWidth;
         c.classList.toggle("is-w-md", w >= 220 && w < 280);
         const nom = c.querySelector(".product-card-name"); // nombre largo: baja de tamaño de a 1px (mínimo 15px) antes de cortarse
-        if (nom && !cont.classList.contains("is-compact")) {
+        if (nom && !cont.classList.contains("is-compact") && !c.querySelector(".gift-ribbon")) { // con listón el nombre baja a 2 líneas en vez de achicarse
           nom.style.fontSize = "";
           for (let fs = parseFloat(getComputedStyle(nom).fontSize); nom.scrollWidth > nom.clientWidth && fs > 15; fs--) nom.style.fontSize = (fs - 1) + "px";
         } else if (nom) nom.style.fontSize = "";
@@ -1204,7 +1220,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, true);
     row.addEventListener("dragstart", (e) => e.preventDefault());
   }
-  initCatalogCarousel();
+  try { initCatalogCarousel(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
   // Compartido con js/pedido.js (Mi pedido)
   window.TL = { expandirAccesorios, variante: varianteDe, bateriaDe };
 
@@ -1263,7 +1279,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (activeCond !== "all" && activeCat === "all") activeCat = categorias.find((c) => normalizar(c) === "iphone") || "all";
     if (activeCat !== "iPhone") activeCond = "all";
     if (condTabs) {
-      condTabs.innerHTML = btnFiltro("catalog-subtab", "all", "Todos", activeCond === "all") + btnFiltro("catalog-subtab", "nuevo", "Nuevos", activeCond === "nuevo") + btnFiltro("catalog-subtab", "usado", "Usados", activeCond === "usado");
+      condTabs.innerHTML = btnFiltro("", "all", "Todos", activeCond === "all") + btnFiltro("", "nuevo", "Nuevos", activeCond === "nuevo") + btnFiltro("", "usado", "Usados", activeCond === "usado");
       condTabs.addEventListener("click", (e) => {
         const btn = e.target.closest(".catalog-filter-tab");
         if (!btn) return;
@@ -1362,7 +1378,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ============================================================
      MAPA — se carga solo en el Home, cuando se acerca al viewport
      ============================================================ */
-  loadBranchMap();
+  try { loadBranchMap(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
   /* ============================================================
      STAT NUMBERS — conteo 0 → valor final al entrar en viewport.
@@ -1404,8 +1420,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  initStatCounters();
-  applyWhatsAppLinks();
+  try { initStatCounters(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
+  try { applyWhatsAppLinks(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
   /* ============================================================
      REVELADO DE TÍTULOS — h2 de las secciones: opacidad + translateY(12px),
@@ -1425,7 +1441,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, { threshold: 0.2 });
     titles.forEach((t) => { t.classList.add("reveal"); observer.observe(t); });
   }
-  initTitleReveal();
+  try { initTitleReveal(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
   /* ============================================================
      CALCULADORA DE PLAN CANJE — la interfaz arma el DOM acá. La lógica pura está en
@@ -1651,7 +1667,7 @@ document.addEventListener("DOMContentLoaded", () => {
       resultado.append(el("div", { class: "calc-card calc-card--result" }, partes));
     });
   }
-  initCalculadora();
+  try { initCalculadora(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
   /* ============================================================
      OPINIONES — dos piezas con los datos de js/reviews-data.js:
      a) #opiniones-franja (justo después del hero): promedios de Google Maps y reseñas en loop
@@ -1725,7 +1741,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }));
     sec.hidden = false;
 
-    const fxOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches; // el modo autónomo funciona también en táctil
+    const fxOk = !window.matchMedia("(prefers-reduced-motion: reduce)").matches && !window.matchMedia("(max-width: 768px)").matches; // en celular las fotos van en una grilla estática (sin capa animada) // el modo autónomo funciona también en táctil
     const capa = sec.querySelector(".opiniones-fx");
     if (!fxOk || !capa || !("IntersectionObserver" in window)) return;
 
@@ -1737,7 +1753,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const ocupadas = new Map(); // "col,fila" → celda
     const recientes = [];
     let idx = Math.floor(Math.random() * CLIENTES_FOTOS.length);
-    let activa = false, raf = 0, ptr = null, ultimaKey = "";
+    let activa = false, raf = 0, ptr = null, ultimaKey = "", proxAuto = 0;
+    const tactil = window.matchMedia("(pointer: coarse)").matches; // en celular: menos fotos a la vez y más espaciadas (memoria de iOS)
+    const intervaloAuto = FX.autoIntervalo * (tactil ? 4 : 1), maxAct = tactil ? Math.min(FX.maxActivas, 6) : FX.maxActivas;
     let cols = 1, lado = FX.celdaObjetivo, filas = 1, textos = [];
 
     // Grilla: columnas = round(ancho / objetivo), celda = ancho / columnas, filas = ceil(alto / celda).
@@ -1765,7 +1783,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const montarPool = () => {
       pool = [];
-      for (let i = 0; i < Math.max(FX.maxVisibles, FX.maxActivas + FX.poolExtra); i++) {
+      for (let i = 0; i < Math.max(FX.maxVisibles, maxAct + FX.poolExtra); i++) {
         const el = mk("div", "fx-cell");
         const img = new Image();
         img.alt = ""; img.loading = "lazy"; img.decoding = "async";
@@ -1820,7 +1838,8 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     const tick = (ahora) => {
       raf = 0;
-      if (!activa) return;
+      if (!activa || document.hidden) return; // en segundo plano no corre; visibilitychange lo reanuda
+      if (ahora >= proxAuto) { proxAuto = ahora + intervaloAuto; lanzarAuto(); } // modo autónomo dentro del mismo loop (sin setTimeout)
       if (ptr) {
         const rect = sec.getBoundingClientRect();
         const col = Math.min(cols - 1, Math.floor((ptr.x - rect.left) / lado));
@@ -1837,7 +1856,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (c.fase === 1 && edad > c.perm) { c.fase = 2; c.el.classList.remove("is-in"); }
         else if (c.fase === 2 && edad > c.perm + FX.salidaMs) liberar(c);
       }
-      if (vivas) raf = requestAnimationFrame(tick);
+      raf = requestAnimationFrame(tick); // sigue mientras la sección esté visible
     };
     const mover = (e) => {
       if (e.pointerType !== "mouse") return;
@@ -1845,11 +1864,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!raf) raf = requestAnimationFrame(tick);
     };
     // Modo autónomo: una foto cada autoIntervalo ms en una celda al azar, sin repetir la anterior ni tocar una vecina de otra visible
-    let tAuto = 0, ultimaAuto = "";
+    let ultimaAuto = "";
     const lanzarAuto = () => {
-      tAuto = 0;
       if (!activa) return;
-      if (pool.filter((c) => c.fase).length < FX.maxActivas) {
+      if (pool.filter((c) => c.fase).length < maxAct) {
         const vivas = [...ocupadas.keys()].map((k) => k.split(",").map(Number));
         for (let i = 0; i < cols * filas; i++) {
           const col = Math.floor(Math.random() * cols), fila = Math.floor(Math.random() * filas), key = col + "," + fila;
@@ -1857,11 +1875,9 @@ document.addEventListener("DOMContentLoaded", () => {
           ultimaAuto = key;
           const k = Math.random(); // 0 = tenue y larga, 1 = nítida y corta
           tocar(col, fila, performance.now(), FX.intensidadMin + k * (FX.intensidadMax - FX.intensidadMin), FX.autoPermMax - k * (FX.autoPermMax - FX.autoPermMin));
-          if (!raf) raf = requestAnimationFrame(tick);
           break;
         }
       }
-      tAuto = setTimeout(lanzarAuto, FX.autoIntervalo);
     };
     function apagarTodo() { if (pool) pool.forEach((c) => { if (c.fase) liberar(c); }); ultimaKey = ""; ultimaAuto = ""; ptr = null; }
 
@@ -1871,23 +1887,25 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("load", layout, { once: true });
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
 
+    window.addEventListener("tl-fx-reanudar", () => { if (activa && !raf) raf = requestAnimationFrame(tick); });
     new IntersectionObserver((entradas) => {
       const dentro = entradas[entradas.length - 1].isIntersecting;
       if (dentro && !activa) {
         if (!pool) montarPool();
         activa = true;
         sec.addEventListener("pointermove", mover, { passive: true });
-        lanzarAuto(); // arranque inmediato
+        proxAuto = 0;
+        if (!raf) raf = requestAnimationFrame(tick); // arranque inmediato
       } else if (!dentro && activa) {
         activa = false;
         sec.removeEventListener("pointermove", mover);
-        clearTimeout(tAuto); tAuto = 0;
         if (raf) { cancelAnimationFrame(raf); raf = 0; }
         apagarTodo();
       }
     }, { threshold: 0 }).observe(sec);
   }
-  initOpiniones();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) window.dispatchEvent(new Event("tl-fx-reanudar")); });
+  try { initOpiniones(); } catch (e) { /* mejora secundaria */ }
 
   /* ============================================================
      HORARIOS DE SUCURSAL — en cada tarjeta [data-sucursal] (Home y Nosotros): resumen legible de tres líneas,
@@ -1985,6 +2003,6 @@ document.addEventListener("DOMContentLoaded", () => {
     programar();
     document.addEventListener("visibilitychange", () => { if (!document.hidden) actualizar(); });
   }
-  initHorarios();
+  try { initHorarios(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
 });
