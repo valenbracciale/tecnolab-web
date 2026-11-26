@@ -360,7 +360,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.pointerType !== "mouse") return;
         if (!habilitado() || e.buttons || cont.classList.contains("is-dragging")) { soltar(); return; }
         const card = e.target.closest(SEL);
-        if (!card || !cont.contains(card) || card.matches(":focus-visible") || card.querySelector(":focus-visible")) { soltar(); return; }
+        if (!card || !cont.contains(card) || card.classList.contains("is-gift-card") || card.matches(":focus-visible") || card.querySelector(":focus-visible")) { soltar(); return; }
         if (card !== activa) {
           soltar();
           activa = card;
@@ -381,7 +381,7 @@ document.addEventListener("DOMContentLoaded", () => {
         arrancar();
       });
       cont.addEventListener("pointerleave", soltar);
-      cont.addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && e.target.closest(".catalog-cards-row")) soltarYa(); });
+      cont.addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && e.target.closest(".catalog-cards-row") && !e.target.closest(".gift-overlay")) soltarYa(); });
       cont.addEventListener("focusin", (e) => { if (activa && e.target.matches(":focus-visible")) soltar(); });
     });
     window.addEventListener("blur", soltar);
@@ -850,32 +850,121 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* Listón de regalo (esquina superior derecha) + panel con los regalos sobre la foto. Los regalos salen de la promo vigente
      (js/promos-data.js → regalos): solo las cards con promo con regalos los llevan. */
-  const GIFT_SVG = {
-    cargador: '<path d="M9 3v4M15 3v4M7 7h10v3a5 5 0 0 1-10 0V7zM12 15v4a2 2 0 0 0 2 2h2"/>',
-    cable: '<path d="M8 3v3m0 0a4 4 0 0 0 4 4h0a4 4 0 0 0 4-4V3"/><rect x="6" y="3" width="4" height="2" rx="0.5"/><rect x="14" y="3" width="4" height="2" rx="0.5"/><path d="M12 10v11"/><circle cx="12" cy="21" r="1"/>',
-    funda: '<rect x="5" y="2" width="14" height="20" rx="4"/><rect x="8" y="2" width="8" height="3" rx="1.5" fill="rgba(255,255,255,0.3)" stroke="none"/><path d="M5 8h14M5 16h14" stroke-opacity="0.5"/>',
-    vidrio: '<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M9 3v18M15 3v18M4 9h16M4 15h16" stroke-opacity="0.5"/><path d="M14 6l.5 1 1 .5-1 .5-.5 1-.5-1-1-.5 1-.5z" fill="white" stroke="none"/>',
-    regalo: '<rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M12 9v11M3 9h18M12 9c-2.5 0-4-1-4-2.5S9.5 4 12 9zM12 9c2.5 0 4-1 4-2.5S14.5 4 12 9z"/>'
-  };
-  const giftIcono = (t) => {
-    const k = /cargador/i.test(t) ? "cargador" : /cable/i.test(t) ? "cable" : /funda/i.test(t) ? "funda" : /vidrio|templado/i.test(t) ? "vidrio" : "regalo";
-    return `<svg class="gift-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GIFT_SVG[k]}</svg>`;
-  };
-  function giftOverlayHTML(regalos) {
-    return `<div class="gift-overlay" hidden>
-        <button type="button" class="gift-overlay-close" aria-label="Cerrar regalos">✕ cerrar</button>
-        <p class="gift-overlay-title">Incluye de regalo</p>
-        <div class="gift-overlay-items">${regalos.map((r) => `<div class="gift-overlay-item">${giftIcono(r)}<span>${r}</span></div>`).join("")}</div>
+  // Panel «Incluye de regalo» (mockup aprobado): los tres regalos, sus textos y sus íconos son fijos.
+  const GIFT_SVG_ATTR = 'width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"';
+  const GIFT_ITEMS = [
+    { titulo: 'Cable <span class="gift-nb">USB-C</span>', sub: "Carga rápida trenzado", svg: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"></path>' },
+    { titulo: "Funda protectora", sub: "Silicona / MagSafe", svg: '<rect x="6" y="2" width="12" height="20" rx="3"></rect><circle cx="12" cy="13" r="3"></circle><line x1="12" y1="16" x2="12" y2="18.5"></line><rect x="8.5" y="4.5" width="3.5" height="3.5" rx="1"></rect>' },
+    { titulo: "Vidrio templado", sub: "Protección 9H HD", svg: '<rect x="6" y="2" width="12" height="20" rx="2.5"></rect><line x1="9" y1="7" x2="13" y2="11"></line><line x1="11" y1="6" x2="15" y2="10"></line>' }
+  ];
+  function giftOverlayHTML(id) {
+    return `<div class="gift-overlay" id="${id}" role="group" aria-label="Incluye de regalo" aria-hidden="true" inert>
+        <div class="gift-head">
+          <span class="gift-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true" focusable="false"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line></svg>Incluye de regalo</span>
+          <button type="button" class="gift-overlay-close" aria-label="Cerrar" title="Cerrar">✕</button>
+        </div>
+        <div class="gift-list">${GIFT_ITEMS.map((g) => `<div class="gift-item">
+          <div class="gift-item-main"><div class="gift-item-icon"><svg ${GIFT_SVG_ATTR}>${g.svg}</svg></div><div class="gift-item-text"><div class="gift-item-title">${g.titulo}</div><div class="gift-item-sub">${g.sub}</div></div></div>
+          <span class="gift-item-tag">GRATIS</span>
+        </div>`).join("")}</div>
       </div>`;
   }
-  function toggleGift(card, abrir) {
+  /* Apertura y cierre del panel de regalo. La card crece lo necesario para que entre todo el panel, con 14px fijos entre el
+     panel y el bloque del precio (GIFT_GAP). Se anima solo altura, opacidad y translateY (CSS); las alturas se miden acá
+     porque el panel está en posición absoluta. Cerrado: inert + aria-hidden (sin foco ni lectura). Con prefers-reduced-motion
+     el cambio es instantáneo. Solo crece la card abierta: las demás de la fila se congelan en su alto actual. */
+  const GIFT_GAP = 14, GIFT_MS_IN = 330, GIFT_MS_OUT = 250;
+  const sinMovimiento = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const tarjetasDe = (cont) => [...cont.children].filter((c) => c.classList.contains("product-card"));
+  function giftCongelar(card) {
+    const cont = card.parentElement;
+    if (!cont) return;
+    if (!cont.dataset.giftAbiertas) {
+      tarjetasDe(cont).forEach((c) => { c.dataset.giftMin = c.style.minHeight; c.style.minHeight = c.offsetHeight + "px"; });
+      cont.classList.add("is-gift-open");
+      cont.dataset.giftAbiertas = "0";
+    }
+    cont.dataset.giftAbiertas = String(Number(cont.dataset.giftAbiertas) + 1);
+  }
+  function giftDescongelar(card) {
+    const cont = card.parentElement;
+    if (!cont || !cont.dataset.giftAbiertas) return;
+    const n = Number(cont.dataset.giftAbiertas) - 1;
+    if (n > 0) { cont.dataset.giftAbiertas = String(n); return; }
+    delete cont.dataset.giftAbiertas;
+    cont.classList.remove("is-gift-open");
+    tarjetasDe(cont).forEach((c) => { c.style.minHeight = c.dataset.giftMin || ""; delete c.dataset.giftMin; });
+  }
+  // Medidas: alto natural de la zona de foto (base), alto del panel y alto final de la zona (T >= base).
+  // B = distancia entre el borde inferior del panel y el de la zona de foto: se calcula para que, entre el panel y el
+  // bloque del precio, queden siempre GIFT_GAP px (la zona de foto puede solaparse o separarse del pie según la card).
+  function giftMedir(card, ov, m) {
+    const foot = card.querySelector(".product-card-foot");
+    m.style.minHeight = "";
+    const base = m.offsetHeight;
+    ov.style.height = "auto"; ov.style.bottom = "auto";
+    const natural = ov.offsetHeight;
+    ov.style.height = ""; ov.style.bottom = "";
+    let B = GIFT_GAP, T = Math.max(base, natural + B);
+    for (let i = 0; i < 3; i++) {
+      m.style.minHeight = T + "px";
+      const delta = foot ? foot.getBoundingClientRect().top - m.getBoundingClientRect().bottom : 0;
+      const nB = Math.max(0, GIFT_GAP - delta), nT = Math.max(base, natural + nB);
+      if (nB === B && nT === T) break;
+      B = nB; T = nT;
+    }
+    m.style.minHeight = "";
+    return { base, T, B, P: T - B };
+  }
+  function giftAnimar(card, abrir, inmediato) {
+    const ov = card.querySelector(".gift-overlay"), m = card.querySelector(".product-card-media");
+    clearTimeout(ov._t);
+    const ms = inmediato || sinMovimiento() ? 0 : (abrir ? GIFT_MS_IN : GIFT_MS_OUT);
+    const hOv = ov.offsetHeight, hM = m.offsetHeight; // estado actual (por si se interrumpe otra animación)
+    ov.classList.remove("is-anim"); m.classList.remove("is-gift-anim");
+    const { base, T, B, P } = giftMedir(card, ov, m);
+    ov.style.setProperty("--gift-b", B + "px");
+    const fin = () => {
+      ov.classList.remove("is-anim"); m.classList.remove("is-gift-anim");
+      ov.style.height = "";
+      if (abrir) { m.style.minHeight = T + "px"; return; }
+      m.style.minHeight = "";
+      card.classList.remove("is-gift-card");
+      ov.style.removeProperty("--gift-b");
+      ov.inert = true; ov.setAttribute("aria-hidden", "true");
+      if (ov._cuenta) { ov._cuenta = false; giftDescongelar(card); }
+    };
+    if (!ms) { ov.classList.toggle("is-open", abrir); if (abrir) m.style.minHeight = T + "px"; fin(); return; }
+    ov.style.height = hOv + "px"; m.style.minHeight = hM + "px";
+    void ov.offsetHeight; // fija el punto de partida antes de animar
+    ov.style.setProperty("--gift-ms", ms + "ms"); m.style.setProperty("--gift-ms", ms + "ms");
+    ov.classList.add("is-anim"); m.classList.add("is-gift-anim");
+    ov.classList.toggle("is-open", abrir);
+    ov.style.height = (abrir ? P : 0) + "px";
+    m.style.minHeight = (abrir ? T : base) + "px";
+    ov._t = setTimeout(fin, ms + 40);
+  }
+  function toggleGift(card, abrir, inmediato) {
     const ov = card.querySelector(".gift-overlay"), rb = card.querySelector(".gift-ribbon");
-    if (!ov || !rb) return;
-    ov.hidden = !abrir;
+    if (!ov || !rb || abrir === ov.classList.contains("is-open")) return;
     rb.hidden = abrir;
+    rb.setAttribute("aria-expanded", String(abrir));
+    if (abrir) {
+      ov.inert = false; ov.removeAttribute("aria-hidden");
+      if (!ov._cuenta) { giftCongelar(card); ov._cuenta = true; }
+      card.classList.add("is-gift-card"); // después de congelar: el alto de reposo queda como mínimo y la card solo crece
+    }
+    giftAnimar(card, abrir, inmediato);
     if (abrir) { const c = ov.querySelector(".gift-overlay-close"); if (c) c.focus({ preventScroll: true }); }
     else rb.focus({ preventScroll: true });
   }
+  // Un cambio de ancho vuelve a calcular todo: se cierran los paneles abiertos al instante (el alto de la barra del navegador en celular no cuenta)
+  let giftAncho = window.innerWidth;
+  window.addEventListener("resize", () => {
+    if (window.innerWidth === giftAncho) return;
+    giftAncho = window.innerWidth;
+    document.querySelectorAll(".gift-overlay.is-open").forEach((ov) => toggleGift(ov.closest(".product-card"), false, true));
+  });
   document.addEventListener("click", (e) => {
     const rb = e.target.closest(".gift-ribbon");
     const cierre = e.target.closest(".gift-overlay-close");
@@ -885,7 +974,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    const ov = document.querySelector(".gift-overlay:not([hidden])");
+    const ov = document.querySelector(".gift-overlay.is-open");
     if (ov) toggleGift(ov.closest(".product-card"), false);
   });
 
@@ -931,7 +1020,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return `
       <article class="product-card${enOferta ? " product-card--oferta" : ""}" data-id="${escAttr(p.id)}" data-categoria="${p.categoria}" data-condicion="${usado ? "usado" : "nuevo"}"${p.subcategoria ? ` data-subcategoria="${escAttr(p.subcategoria)}"` : ""} data-busqueda="${escAttr(normalizar([p.nombre, p.subcategoria || "", p.variante || "", usado ? "usado" : ""].join(" ")))}">
         <button type="button" class="product-card-open" aria-haspopup="dialog" aria-label="${escAttr("Ver detalle de " + p.nombre + (p.variante ? ", " + p.variante : ""))}"></button>
-        ${regalosCard.length ? `<button type="button" class="gift-ribbon" aria-label="Ver el regalo"><span class="gift-ribbon-band">${ICONO_REGALO}Regalo</span></button>` : ""}
+        ${regalosCard.length ? `<button type="button" class="gift-ribbon" aria-label="Ver el regalo" aria-expanded="false" aria-controls="gift-${escAttr(p.id)}"><span class="gift-ribbon-band">${ICONO_REGALO}Regalo</span></button>` : ""}
         <div class="product-card-head">
           ${etiqueta}
           <h3 class="product-card-name">${p.nombre}</h3>
@@ -945,7 +1034,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ? `<img src="${escAttr(imgCard)}" alt="${escAttr(esAccesorio ? p.nombre : p.nombre + " color " + colores[0].nombre.toLowerCase())}" width="728" height="666" loading="${eager ? "eager" : "lazy"}"${alta ? " fetchpriority=\"high\"" : ""} decoding="async">`
             : `<div class="product-card-media-placeholder">${p.categoria === "iPhone" ? ICONO_TELEFONO : ICONO_CAJA}<span>Foto próximamente</span></div>`
           }
-          ${regalosCard.length ? giftOverlayHTML(regalosCard) : ""}
+          ${regalosCard.length ? giftOverlayHTML("gift-" + escAttr(p.id)) : ""}
           ${swatches}
         </div>
         ${pie}
@@ -997,7 +1086,17 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     aplicar();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(aplicar); // con la tipografía final el nombre puede medir distinto
-    if ("ResizeObserver" in window) { const ro = new ResizeObserver(aplicar); ro.observe(cont); cont.querySelectorAll(".product-card").forEach((c) => ro.observe(c)); } else window.addEventListener("resize", aplicar);
+    // Solo el ANCHO importa acá (tamaño de fuente del nombre, versión corta del cartel): al abrir/cerrar el regalo la card cambia
+    // de alto en cada frame y re-medir todas las cards cada vez forzaba cientos de layouts.
+    if ("ResizeObserver" in window) {
+      const anchos = new WeakMap();
+      const ro = new ResizeObserver((es) => {
+        let cambio = false;
+        es.forEach((e) => { const w = Math.round(e.contentRect.width); if (anchos.get(e.target) !== w) { anchos.set(e.target, w); cambio = true; } });
+        if (cambio) aplicar();
+      });
+      ro.observe(cont); cont.querySelectorAll(".product-card").forEach((c) => ro.observe(c));
+    } else window.addEventListener("resize", aplicar);
   }
 
   const catalogRow = document.querySelector(".catalog-cards-row");
@@ -1123,7 +1222,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Arrastre con mouse (el touch ya es nativo)
     let startX = 0, startLeft = 0, dragging = false, moved = false;
     row.addEventListener("pointerdown", (e) => {
-      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      if (e.pointerType !== "mouse" || e.button !== 0 || e.target.closest(".gift-overlay")) return;
       dragging = true;
       moved = false;
       startX = e.clientX;
