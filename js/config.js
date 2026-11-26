@@ -8,7 +8,9 @@ const SITE_CONFIG = {
   whatsappNumber: "5492614699026",
   siteUrl: "https://www.tecnolabmza.com",
   // Webhook de n8n que calcula la cotización de Plan Canje y guarda el lead (los valores de toma viven solo en el servidor)
-  canjeWebhookUrl: "https://tecnolab-n8n.duckdns.org/webhook/canje"
+  canjeWebhookUrl: "https://tecnolab-n8n.duckdns.org/webhook/canje",
+  // Webhook de n8n del panel de admin (lista y cambia el estado de los leads; exige el token de sesión de Supabase)
+  leadsAdminUrl: "https://tecnolab-n8n.duckdns.org/webhook/leads-admin"
 };
 
 /**

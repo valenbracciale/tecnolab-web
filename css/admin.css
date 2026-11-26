@@ -120,3 +120,45 @@
 .adm-confirm-acciones { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 .adm-confirm-acciones .adm-btn { flex: 1; }
 .adm-noscript { padding: 24px; font-weight: 600; }
+
+/* ---- Pestañas Productos / Leads ---- */
+.adm-main--ancho { max-width: 1240px; }
+.adm-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.adm-tab {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px; border-radius: var(--radius-btn);
+  border: 1.5px solid var(--adm-borde); background: var(--white); color: var(--text);
+  font-family: var(--font-family); font-size: var(--fs-btn); font-weight: 600; cursor: pointer;
+}
+.adm-tab[aria-selected="true"] { background: var(--text); border-color: var(--text); color: var(--white); }
+.adm button.adm-tab:focus-visible { outline: 2px solid var(--blue-on-light); outline-offset: 2px; }
+.adm-contador { min-width: 24px; padding: 0 8px; border-radius: var(--radius-btn); background: var(--blue-on-light); color: var(--white); font-size: var(--fs-small); line-height: 24px; text-align: center; }
+
+/* ---- Leads: tarjetas en celular, tabla en escritorio ---- */
+.adm-tools--leads { display: grid; gap: 8px; }
+@media (min-width: 700px) { .adm-tools--leads { grid-template-columns: 1fr 200px auto; } }
+.adm-reintentar { margin-top: 8px; }
+.adm-leads-cab { display: none; }
+.adm-leads { display: grid; gap: 8px; margin-top: 8px; }
+.adm-lead {
+  display: grid; gap: 6px; padding: 14px 16px; border-radius: var(--radius-media); background: var(--white); box-shadow: var(--shadow-card);
+  overflow-wrap: anywhere;
+}
+.adm-lead-fecha { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.adm-lead-nombre { font-weight: 600; font-size: var(--fs-body); }
+.adm-lead-equipo { display: grid; gap: 4px; }
+.adm-lead-detalles { display: inline-block; justify-self: start; padding: 2px 10px; border-left: 4px solid var(--text); background: var(--surface-2); font-weight: 600; }
+.adm-lead-rot { color: var(--text-2); }
+.adm-lead-rango { font-weight: 600; }
+.adm-lead-estado { margin-top: 4px; }
+.adm-lead-wa { width: 100%; }
+@media (min-width: 960px) {
+  .adm-leads-cab, .adm-lead {
+    grid-template-columns: 76px minmax(110px, 1fr) minmax(180px, 1.6fr) minmax(110px, 1fr) 130px 150px 120px;
+    align-items: center; column-gap: 12px;
+  }
+  .adm-leads-cab { display: grid; margin-top: 12px; padding: 0 16px; color: var(--text-2); font-weight: 600; }
+  .adm-lead { padding: 10px 16px; }
+  .adm-lead-rot { display: none; }
+  .adm-lead-estado { margin-top: 0; min-height: 44px; padding: 0 10px; }
+  .adm-lead-wa { min-height: 44px; padding: 0 12px; width: auto; }
+}

@@ -14,6 +14,7 @@
   const EXTS = ["jpg", "jpeg", "png", "webp"];
   const NUEVA = "__nueva__";
   const COLUMNAS = "id,categoria,subcategoria,nombre,variante,especificacion,precio_num,precio_texto,moneda,condicion,regalo,disponible,orden,fotos,colores";
+  const COLUMNAS_SIN_COND = COLUMNAS.replace(",condicion", ""); // respaldo si falta la migración de condicion
   const fmt = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 
   const $ = (id) => document.getElementById(id);
@@ -95,6 +96,7 @@
       cargado = false; productos = []; ed = null;
       const e = $("adm-editor"); if (e.open) e.close();
       $("adm-lista").replaceChildren();
+      if (window.__admLeadsReset) window.__admLeadsReset();
     }
   }
   function sesion(s) {
@@ -118,11 +120,22 @@
   }
 
   /* ---------------------------------------------------------------- lista */
+  const AVISO_COND = "Falta correr la migración de condicion en Supabase (supabase/migracion-condicion.sql).";
+  let avisoCond = false; // true = la columna condicion no existe todavía: se cargó la lista sin ella
+  // Error de columna inexistente: 42703 (Postgres) o PGRST204 (caché de esquema de PostgREST) que nombra a condicion
+  const faltaCondicion = (e) => !!e && (e.code === "42703" || e.code === "PGRST204") && /condicion/i.test(e.message || "");
   async function cargar() {
     $("adm-estado").textContent = "Cargando productos…";
-    const { data, error } = await sb.from("productos").select(COLUMNAS).order("orden", { ascending: true });
+    const pedir = (cols) => sb.from("productos").select(cols).order("orden", { ascending: true });
+    let { data, error } = await pedir(COLUMNAS);
+    avisoCond = false;
+    if (faltaCondicion(error)) { // la migración de «condicion» aún no se corrió: se reintenta sin esa columna
+      avisoCond = true;
+      ({ data, error } = await pedir(COLUMNAS_SIN_COND));
+    }
     if (error) {
-      $("adm-estado").textContent = "No pudimos cargar los productos. Tocá “Salir” y volvé a entrar, o probá de nuevo en un rato.";
+      console.error("No pudimos cargar los productos:", error.message, error);
+      $("adm-estado").textContent = "No pudimos cargar los productos (código " + (error.code || error.status || "desconocido") + "). Tocá “Salir” y volvé a entrar, o probá de nuevo en un rato.";
       cargado = false;
       return;
     }
@@ -139,7 +152,7 @@
   function pintarLista() {
     const q = norm($("adm-buscar").value.trim()), cat = $("adm-filtro-cat").value;
     const vis = productos.filter((p) => (!cat || p.categoria === cat) && (!q || norm([p.nombre, p.variante, p.categoria, p.subcategoria].join(" ")).includes(q)));
-    $("adm-estado").textContent = productos.length ? vis.length + " de " + productos.length + " productos" : "Todavía no hay productos.";
+    $("adm-estado").textContent = (productos.length ? vis.length + " de " + productos.length + " productos" : "Todavía no hay productos.") + (avisoCond ? " · " + AVISO_COND : "");
     $("adm-lista").replaceChildren(...vis.map((p) => {
       const src = srcSeguro(fotoPrincipal(p));
       const thumb = src ? h("img", { class: "adm-thumb", src, alt: "", width: "56", height: "56", loading: "lazy", decoding: "async" }) : h("span", { class: "adm-thumb", "aria-hidden": "true", text: "Sin foto" });
@@ -424,6 +437,179 @@
     $("adm-eliminar").disabled = false;
   }
 
+  /* ---------------------------------------------------------------- leads */
+  // Los leads los escribe el público: se muestran SOLO con textContent / nodos creados. No se registran en consola
+  // ni se guardan en localStorage/sessionStorage.
+  const ESTADOS_LEAD = ["Nuevo", "Contactado", "Cerrado", "Descartado"];
+  let leads = [];
+  let leadsCargados = false, leadsCargando = false;
+
+  const fechaLead = (iso) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    const p = {};
+    new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Mendoza", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+      .formatToParts(d).forEach((x) => { p[x.type] = x.value; });
+    return p.day + "/" + p.month + " " + p.hour + ":" + p.minute;
+  };
+
+  // POST al webhook con el token de la sesión (se pide en cada llamada para que no venza). Devuelve { status, json }.
+  async function leadsApi(body) {
+    const url = typeof SITE_CONFIG !== "undefined" ? SITE_CONFIG.leadsAdminUrl : "";
+    if (!url) throw Object.assign(new Error("sin endpoint"), { codigo: "config" });
+    const { data } = await sb.auth.getSession();
+    const token = data && data.session ? data.session.access_token : "";
+    if (!token) return { status: 401, json: null };
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      });
+      let json = null;
+      try { json = await res.json(); } catch (x) { /* cuerpo vacío o no JSON */ }
+      return { status: res.status, json };
+    } catch (x) {
+      throw Object.assign(new Error("red"), { codigo: x && x.name === "AbortError" ? "timeout" : "red" });
+    } finally { clearTimeout(t); }
+  }
+
+  // 401: se cierra la sesión con la misma salida del panel y se avisa en el login
+  async function sesionVencida() {
+    await sb.auth.signOut();
+    mostrarError($("adm-login-error"), "Tu sesión venció. Volvé a entrar.");
+  }
+
+  function pintarContador() {
+    const n = leads.filter((l) => l.estado === "Nuevo").length;
+    const c = $("adm-leads-contador");
+    c.hidden = !(leadsCargados && n > 0);
+    c.textContent = String(n);
+    c.setAttribute("aria-label", n + " leads nuevos");
+  }
+
+  function equipoLead(l) {
+    const modelo = String(l.modelo || "").trim();
+    const base = modelo ? modelo + (l.capacidad ? " " + l.capacidad + " GB" : "") : "—";
+    const nodos = [h("span", { text: base + (l.bateria ? " · batería " + l.bateria + " %" : "") })];
+    const det = String(l.detalles || "");
+    if (/^s[ií]/i.test(det)) {
+      const txt = det.replace(/^s[ií]\s*:?\s*/i, "").trim();
+      nodos.push(h("span", { class: "adm-lead-detalles", text: "Detalles: " + (txt || "sin especificar") }));
+    }
+    return nodos;
+  }
+
+  function linkWa(l) {
+    const tel = String(l.whatsapp || "").replace(/\D/g, "");
+    if (!tel) return null;
+    const msg = "Hola " + (l.nombre || "") + ", te escribimos de Tecnolab por la cotización de tu " + (String(l.modelo || "").trim() || "iPhone") +
+      " que pediste en la web. ¿Te confirmo el precio final?";
+    return h("a", { class: "adm-btn adm-btn--outline adm-lead-wa", href: "https://wa.me/" + tel + "?text=" + encodeURIComponent(msg), target: "_blank", rel: "noopener", text: "WhatsApp" });
+  }
+
+  async function cambiarEstado(l, sel) {
+    const nuevo = sel.value, previo = l.estado;
+    if (nuevo === previo) return;
+    l.estado = nuevo; pintarContador(); // la fila se actualiza de inmediato
+    sel.disabled = true;
+    try {
+      const { status, json } = await leadsApi({ accion: "estado", id: l.id, estado: nuevo });
+      if (status === 401) { l.estado = previo; sel.value = previo; pintarContador(); await sesionVencida(); return; }
+      if (status !== 200 || !json || json.ok !== true) throw new Error("no ok");
+    } catch (x) {
+      l.estado = previo; sel.value = previo; pintarContador();
+      aviso("No se pudo cambiar el estado. Probá de nuevo.");
+    }
+    sel.disabled = false;
+    if ($("adm-leads-filtro").value) pintarLeads(); // con filtro por estado, la fila puede entrar o salir de la vista
+  }
+
+  function pintarLeads() {
+    const q = norm($("adm-leads-buscar").value.trim()), qd = $("adm-leads-buscar").value.replace(/\D/g, ""), est = $("adm-leads-filtro").value;
+    const vis = leads.filter((l) => (!est || l.estado === est) &&
+      (!q || norm(l.nombre).includes(q) || (qd && String(l.whatsapp || "").includes(qd))));
+    $("adm-leads-estado").textContent = !leads.length ? "Todavía no hay leads." : vis.length + " de " + leads.length + " leads";
+    $("adm-leads-lista").replaceChildren(...vis.map((l) => {
+      const sel = h("select", { class: "adm-input adm-lead-estado", "aria-label": "Estado del lead de " + (l.nombre || "sin nombre") },
+        ESTADOS_LEAD.map((e) => h("option", { value: e, text: e })));
+      sel.value = ESTADOS_LEAD.includes(l.estado) ? l.estado : "Nuevo";
+      sel.addEventListener("change", () => cambiarEstado(l, sel));
+      return h("li", { class: "adm-lead" },
+        h("span", { class: "adm-lead-fecha", text: fechaLead(l.fecha) }),
+        h("span", { class: "adm-lead-nombre", text: l.nombre || "—" }),
+        h("span", { class: "adm-lead-equipo" }, equipoLead(l)),
+        h("span", { class: "adm-lead-quiere" }, h("span", { class: "adm-lead-rot", text: "Quiere: " }), h("span", { text: String(l.deseado || "").trim() || "—" })),
+        h("span", { class: "adm-lead-rango" }, h("span", { class: "adm-lead-rot", text: "Rango: " }), h("span", { text: l.rango_mostrado || "—" })),
+        sel,
+        linkWa(l));
+    }));
+  }
+
+  async function cargarLeads() {
+    if (leadsCargando) return;
+    leadsCargando = true;
+    const est = $("adm-leads-estado"), reint = $("adm-leads-reintentar");
+    reint.hidden = true;
+    est.textContent = "Cargando leads…";
+    $("adm-leads-lista").replaceChildren();
+    try {
+      const { status, json } = await leadsApi({ accion: "listar" });
+      if (status === 401) { await sesionVencida(); return; }
+      if (status !== 200 || !json || json.ok !== true || !Array.isArray(json.leads)) {
+        throw Object.assign(new Error("fallo"), { codigo: status !== 200 ? "HTTP " + status : "respuesta inválida" });
+      }
+      leads = json.leads;
+      leadsCargados = true;
+      pintarContador();
+      pintarLeads();
+    } catch (x) {
+      est.textContent = "No pudimos cargar los leads (código " + (x.codigo || "red") + ").";
+      reint.hidden = false;
+    } finally { leadsCargando = false; }
+  }
+
+  function abrirPestana(cual) {
+    const leadsOn = cual === "leads";
+    $("adm-tab-productos").setAttribute("aria-selected", String(!leadsOn));
+    $("adm-tab-productos").tabIndex = leadsOn ? -1 : 0;
+    $("adm-tab-leads").setAttribute("aria-selected", String(leadsOn));
+    $("adm-tab-leads").tabIndex = leadsOn ? 0 : -1;
+    $("adm-pane-productos").hidden = leadsOn;
+    $("adm-pane-leads").hidden = !leadsOn;
+    $("adm-main").classList.toggle("adm-main--ancho", leadsOn);
+    if (leadsOn && !leadsCargados) cargarLeads(); // los leads se piden solo al abrir la pestaña
+  }
+
+  // Al cerrar sesión se borra todo lo que quedó en memoria (los leads no se guardan en ningún storage)
+  window.__admLeadsReset = () => {
+    leads = []; leadsCargados = false; leadsCargando = false;
+    $("adm-leads-lista").replaceChildren();
+    $("adm-leads-estado").textContent = "";
+    $("adm-leads-reintentar").hidden = true;
+    $("adm-leads-buscar").value = ""; $("adm-leads-filtro").value = "";
+    pintarContador();
+    abrirPestana("productos");
+  };
+
+  function iniciarLeads() {
+    $("adm-tab-productos").addEventListener("click", () => abrirPestana("productos"));
+    $("adm-tab-leads").addEventListener("click", () => abrirPestana("leads"));
+    $("adm-tabs").addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const aLeads = e.key === "ArrowRight";
+      abrirPestana(aLeads ? "leads" : "productos");
+      $(aLeads ? "adm-tab-leads" : "adm-tab-productos").focus();
+    });
+    $("adm-leads-buscar").addEventListener("input", pintarLeads);
+    $("adm-leads-filtro").addEventListener("change", pintarLeads);
+    $("adm-leads-actualizar").addEventListener("click", cargarLeads);
+    $("adm-leads-reintentar").addEventListener("click", cargarLeads);
+  }
+
   /* ---------------------------------------------------------------- arranque */
   function iniciar() {
     if (!window.supabase || typeof SUPABASE_URL === "undefined" || typeof SUPABASE_ANON_KEY === "undefined") {
@@ -434,6 +620,7 @@
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
     $("adm-login-form").addEventListener("submit", entrar);
     $("adm-salir").addEventListener("click", () => { sb.auth.signOut(); });
+    iniciarLeads();
     $("adm-buscar").addEventListener("input", pintarLista);
     $("adm-filtro-cat").addEventListener("change", pintarLista);
     $("adm-agregar").addEventListener("click", () => abrirEditor(null));

@@ -12,8 +12,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=60">
-  <link rel="stylesheet" href="css/admin.css?v=60">
+  <link rel="stylesheet" href="css/style.css?v=61">
+  <link rel="stylesheet" href="css/admin.css?v=61">
 </head>
 <body class="adm">
   <p id="adm-toast" class="adm-toast" role="status" aria-live="polite" hidden></p>
@@ -38,16 +38,39 @@
       <button type="button" class="adm-btn adm-btn--ghost" id="adm-salir">Salir</button>
     </header>
 
-    <main class="adm-main">
-      <div class="adm-tools">
-        <label class="sr-only" for="adm-buscar">Buscar producto</label>
-        <input class="adm-input" id="adm-buscar" type="search" placeholder="Buscar producto" autocomplete="off">
-        <label class="sr-only" for="adm-filtro-cat">Filtrar por categoría</label>
-        <select class="adm-input" id="adm-filtro-cat"><option value="">Todas las categorías</option></select>
-        <button type="button" class="adm-btn adm-btn--primary" id="adm-agregar">+ Agregar producto</button>
+    <main class="adm-main" id="adm-main">
+      <div class="adm-tabs" id="adm-tabs" role="tablist" aria-label="Secciones del panel">
+        <button type="button" class="adm-tab" role="tab" id="adm-tab-productos" aria-selected="true" aria-controls="adm-pane-productos">Productos</button>
+        <button type="button" class="adm-tab" role="tab" id="adm-tab-leads" aria-selected="false" aria-controls="adm-pane-leads" tabindex="-1">Leads<span class="adm-contador" id="adm-leads-contador" hidden></span></button>
       </div>
-      <p id="adm-estado" class="adm-estado" role="status"></p>
-      <ul id="adm-lista" class="adm-lista"></ul>
+
+      <section id="adm-pane-productos" role="tabpanel" aria-labelledby="adm-tab-productos">
+        <div class="adm-tools">
+          <label class="sr-only" for="adm-buscar">Buscar producto</label>
+          <input class="adm-input" id="adm-buscar" type="search" placeholder="Buscar producto" autocomplete="off">
+          <label class="sr-only" for="adm-filtro-cat">Filtrar por categoría</label>
+          <select class="adm-input" id="adm-filtro-cat"><option value="">Todas las categorías</option></select>
+          <button type="button" class="adm-btn adm-btn--primary" id="adm-agregar">+ Agregar producto</button>
+        </div>
+        <p id="adm-estado" class="adm-estado" role="status"></p>
+        <ul id="adm-lista" class="adm-lista"></ul>
+      </section>
+
+      <section id="adm-pane-leads" role="tabpanel" aria-labelledby="adm-tab-leads" hidden>
+        <div class="adm-tools adm-tools--leads">
+          <label class="sr-only" for="adm-leads-buscar">Buscar lead por nombre o teléfono</label>
+          <input class="adm-input" id="adm-leads-buscar" type="search" placeholder="Buscar por nombre o teléfono" autocomplete="off">
+          <label class="sr-only" for="adm-leads-filtro">Filtrar por estado</label>
+          <select class="adm-input" id="adm-leads-filtro">
+            <option value="">Todos</option><option value="Nuevo">Nuevo</option><option value="Contactado">Contactado</option><option value="Cerrado">Cerrado</option><option value="Descartado">Descartado</option>
+          </select>
+          <button type="button" class="adm-btn adm-btn--outline" id="adm-leads-actualizar">Actualizar</button>
+        </div>
+        <p id="adm-leads-estado" class="adm-estado" role="status"></p>
+        <button type="button" class="adm-btn adm-btn--outline adm-reintentar" id="adm-leads-reintentar" hidden>Reintentar</button>
+        <div class="adm-leads-cab" aria-hidden="true"><span>Fecha</span><span>Nombre</span><span>Equipo que entrega</span><span>Quiere</span><span>Rango</span><span>Estado</span><span></span></div>
+        <ul id="adm-leads-lista" class="adm-leads"></ul>
+      </section>
     </main>
   </div>
 
@@ -129,7 +152,7 @@
   <noscript><p class="adm-noscript">Este panel necesita JavaScript.</p></noscript>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous" defer></script>
-  <script src="js/config.js?v=60" defer></script>
-  <script src="js/admin.js?v=60" defer></script>
+  <script src="js/config.js?v=61" defer></script>
+  <script src="js/admin.js?v=61" defer></script>
 </body>
 </html>
