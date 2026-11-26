@@ -1386,37 +1386,13 @@ document.addEventListener("DOMContentLoaded", () => {
   try { initTitleReveal(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
   /* ============================================================
-     CALCULADORA DE PLAN CANJE — la interfaz arma el DOM acá. La lógica pura está en
-     js/calculadora-logic.js; los valores, en js/canje-tabla.js (planilla del negocio) y la
-     configuración en js/calculadora-data.js.
+     CALCULADORA DE PLAN CANJE — la interfaz arma el DOM acá. El CÁLCULO lo hace el servidor: el formulario manda
+     los datos por POST a SITE_CONFIG.canjeWebhookUrl (webhook de n8n), que responde el rango y guarda el lead.
+     En el navegador no hay ningún valor de toma: solo las opciones del formulario (js/canje-opciones.js) y
+     validaciones puras (js/calculadora-logic.js). Sin eval, sin localStorage, sin guardar datos del usuario.
      Mientras CANJE_CONFIG.datosReales sea false NO se renderiza (el contenedor queda
      vacío y hidden), salvo con ?preview=1, que agrega una franja de aviso.
-     Sin animaciones: el resultado aparece de inmediato. Sin guardar datos.
      ============================================================ */
-  /* Límite de cotizaciones por día: se cuenta en este navegador (localStorage), no por IP: es un freno de uso, no una
-     seguridad (borrar los datos del sitio lo reinicia). El log de cotizaciones tampoco sale del navegador. */
-  const LIMITE_KEY = "canje_limit", LOGS_KEY = "canje_logs", LIMITE_MAX = 3;
-  function puedeCotizar() {
-    try {
-      const d = JSON.parse(localStorage.getItem(LIMITE_KEY) || "{}");
-      return d.fecha !== new Date().toDateString() || (d.count || 0) < LIMITE_MAX;
-    } catch { return true; }
-  }
-  function registrarCotizacion() {
-    try {
-      const hoy = new Date().toDateString();
-      const d = JSON.parse(localStorage.getItem(LIMITE_KEY) || "{}");
-      localStorage.setItem(LIMITE_KEY, JSON.stringify({ fecha: hoy, count: d.fecha === hoy ? (d.count || 0) + 1 : 1 }));
-    } catch {}
-  }
-  function guardarLog(instagram, modelo, memoria, bateria, precio) {
-    try {
-      const logs = JSON.parse(localStorage.getItem(LOGS_KEY) || "[]");
-      logs.push({ fecha: new Date().toISOString(), instagram, modelo, memoria, bateria: bateria + "%", precio: precio || "Sin precio" });
-      localStorage.setItem(LOGS_KEY, JSON.stringify(logs));
-    } catch {}
-  }
-
   function initCalculadora() {
     if (typeof CANJE_CONFIG === "undefined") return;
     const habilitada = CANJE_CONFIG.datosReales === true;
@@ -1424,14 +1400,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll("[data-calc-link]").forEach((a) => { a.hidden = !habilitada; });
 
     const root = document.getElementById("calculadora");
-    if (!root || typeof CalculadoraCanje === "undefined" || typeof CANJE_TABLA === "undefined") return;
+    if (!root || typeof CalculadoraCanje === "undefined" || typeof CANJE_OPCIONES === "undefined") return;
     const preview = new URLSearchParams(window.location.search).get("preview") === "1";
     if (!habilitada && !preview) return;
 
     const Calc = CalculadoraCanje;
-    // la calculadora compara precioNum con la tabla de canje: solo entran productos en la moneda de la tabla (o sin moneda, datos viejos)
-    const productos = typeof CATALOGO_DESTACADO !== "undefined" ? CATALOGO_DESTACADO.filter((p) => !p.moneda || p.moneda === CANJE_CONFIG.moneda) : [];
-    const money = (n) => Calc.formatearMonto(CANJE_CONFIG, n);
+    const TIMEOUT_MS = 10000;
     const waLink = (texto) =>
       "https://wa.me/" + (typeof SITE_CONFIG !== "undefined" ? SITE_CONFIG.whatsappNumber : "") + "?text=" + encodeURIComponent(texto);
 
@@ -1446,53 +1420,73 @@ document.addEventListener("DOMContentLoaded", () => {
       hijos.flat().forEach((h) => { if (h) n.append(h); });
       return n;
     };
-    const field = (id, label, control, ayuda) =>
-      el("div", { class: "calc-field" },
-        el("label", { for: id, text: label }),
-        control,
+    // Cada control recuerda su ayuda (aria-describedby base): los errores se agregan y se quitan sin perderla
+    const field = (id, label, control, ayuda) => {
+      if (ayuda) { control.setAttribute("aria-describedby", id + "-ayuda"); control.dataset.ayuda = id + "-ayuda"; }
+      return el("div", { class: "calc-field" },
+        el("label", { for: id, text: label }), control,
         ayuda ? el("p", { class: "calc-help", id: id + "-ayuda", text: ayuda }) : null);
+    };
+
+    // Equipos de interés: los iPhone del catálogo (nombres sin repetir; sin precios)
+    const deseados = [];
+    if (typeof CATALOGO_DESTACADO !== "undefined") {
+      CATALOGO_DESTACADO.forEach((p) => { if (p.categoria === "iPhone" && p.nombre && !deseados.includes(p.nombre)) deseados.push(p.nombre); });
+    }
+    const NO_SE = "Todavía no lo sé";
 
     // --- Controles
     const selModelo = el("select", { id: "calc-modelo", name: "modelo" },
       el("option", { value: "", text: "Elegí un modelo" }),
-      Calc.agruparModelosPorGeneracion(CANJE_TABLA).map((g) =>
+      Calc.agruparModelosPorGeneracion(CANJE_OPCIONES).map((g) =>
         el("optgroup", { label: g.etiqueta }, g.modelos.map((m) => el("option", { value: m.id, text: m.nombre })))),
       el("option", { value: Calc.NO_LISTADO, text: "Mi modelo no está en la lista" }));
     const selCap = el("select", { id: "calc-capacidad", name: "capacidad", disabled: true },
       el("option", { value: "", text: "Elegí una capacidad" }));
-    const inBateria = el("input", { id: "calc-bateria", name: "bateria", type: "number", inputmode: "numeric", min: "1", max: "100", step: "1", "aria-describedby": "calc-bateria-ayuda" });
-    const inInstagram = el("input", { id: "calc-instagram", name: "instagram", type: "text", maxlength: "31", autocomplete: "off", autocapitalize: "none", spellcheck: "false", placeholder: "@usuario", "aria-describedby": "calc-instagram-ayuda" });
+    const inBateria = el("input", { id: "calc-bateria", name: "bateria", type: "number", inputmode: "numeric", min: "1", max: "100", step: "1" });
     const chkDetalles = el("input", { id: "calc-detalles", name: "detalles", type: "checkbox" });
     const txtDetalles = el("textarea", { id: "calc-detalles-texto", name: "detallesTexto", rows: "3", maxlength: "300" });
     const inOtro = el("input", { id: "calc-modelo-texto", name: "modeloTexto", type: "text", maxlength: "60", autocomplete: "off" });
-    const waOtro = el("a", { class: "btn btn-primary calc-wa-otro", target: "_blank", rel: "noopener", text: "Consultar por WhatsApp" });
-    const btnCalcular = el("button", { class: "btn btn-primary calc-submit", type: "submit", text: "Calcular" });
+    const inNombre = el("input", { id: "calc-nombre", name: "nombre", type: "text", maxlength: "60", autocomplete: "name" });
+    const inWhatsapp = el("input", { id: "calc-whatsapp", name: "whatsapp", type: "tel", inputmode: "numeric", maxlength: "20", autocomplete: "tel-national" });
+    const selDeseado = el("select", { id: "calc-deseado", name: "deseado" },
+      deseados.map((n) => el("option", { value: n, text: n })),
+      el("option", { value: NO_SE, text: NO_SE }));
+    selDeseado.value = NO_SE;
+    const chkConsent = el("input", { id: "calc-consentimiento", name: "consentimiento", type: "checkbox" });
+    // Campo trampa para bots: oculto con CSS, fuera del orden de tabulación y del lector de pantalla. NO se completa.
+    const inTrampa = el("input", { id: "calc-web", name: "web", type: "text", tabindex: "-1", autocomplete: "off" });
+    const trampa = el("div", { class: "calc-trampa", "aria-hidden": "true" }, inTrampa);
+    const btnEnviar = el("button", { class: "btn btn-primary calc-submit", type: "submit", text: "Ver mi valor estimado" });
 
     const fCap = field("calc-capacidad", "Capacidad", selCap);
     const fBat = field("calc-bateria", "Salud de batería (%)", inBateria, "Lo ves en Ajustes › Batería › Estado de la batería");
-    const fInsta = field("calc-instagram", "Tu usuario de Instagram", inInstagram, "Lo usamos para verificar tu identidad");
     const filaDetalles = el("div", { class: "calc-check" }, chkDetalles,
       el("label", { for: "calc-detalles", text: "Mi iPhone tiene detalles (pantalla rota, golpes, no enciende, etc.)" }));
     const boxDetalles = el("div", { class: "calc-field", hidden: true },
       el("label", { for: "calc-detalles-texto", text: "Contanos los detalles (opcional)" }), txtDetalles);
-    const boxOtro = el("div", { class: "calc-otro", hidden: true },
-      field("calc-modelo-texto", "¿Qué modelo es?", inOtro, "Escribí el modelo y la memoria si la sabés. Lo tasamos en el local."),
-      waOtro);
-    const resultado = el("div", { class: "calc-result", id: "calc-resultado", "aria-live": "polite" });
+    const fOtro = field("calc-modelo-texto", "¿Qué modelo es?", inOtro, "Escribí el modelo y la memoria si la sabés. Lo tasamos en el local.");
+    fOtro.hidden = true;
+    const fConsent = el("div", { class: "calc-field calc-field--check" },
+      el("div", { class: "calc-check" }, chkConsent,
+        el("label", { for: "calc-consentimiento" },
+          "Acepto que Tecnolab use estos datos para contactarme por mi cotización. ",
+          el("a", { href: "terminos.html#privacidad", target: "_blank", rel: "noopener", text: "Ver Términos y Privacidad" }))));
+    const resultado = el("div", { class: "calc-result", id: "calc-resultado", tabindex: "-1", "aria-live": "polite" });
 
     const form = el("form", { class: "calc-card", novalidate: true, "aria-labelledby": "calc-titulo" },
       el("h2", { class: "title-sentence", id: "calc-titulo", text: "Calculá cuánto te tomamos tu iPhone" }),
       field("calc-modelo", "Modelo", selModelo),
-      fCap, fBat, filaDetalles, boxDetalles, fInsta, boxOtro, btnCalcular);
-
-    const limiteBox = el("div", { class: "calc-card calc-limite", id: "calc-limite", hidden: true, "aria-live": "polite" },
-      el("p", { class: "calc-consulta", text: "Ya realizaste " + LIMITE_MAX + " cotizaciones hoy. Volvé mañana o escribinos directamente." }),
-      el("div", { class: "calc-acciones" }, el("a", { class: "btn btn-primary", href: waLink("Hola Tecnolab, quiero consultar por el Plan Canje"), target: "_blank", rel: "noopener", text: "Hablar con Tecnolab" })));
+      fCap, fBat, filaDetalles, boxDetalles, fOtro,
+      field("calc-nombre", "Tu nombre", inNombre),
+      field("calc-whatsapp", "Tu WhatsApp", inWhatsapp, "Con código de área, sin 0 ni 15. Ej: 261 4699026"),
+      field("calc-deseado", "¿Por cuál equipo te gustaría cambiarlo?", selDeseado),
+      fConsent, trampa, btnEnviar);
 
     root.append(el("div", { class: "container" },
       el("div", { class: "calc" },
         !habilitada ? el("p", { class: "calc-preview", text: "VISTA PREVIA — datos de ejemplo" }) : null,
-        form, limiteBox, resultado)));
+        form, resultado)));
     root.hidden = false;
 
     // --- Comportamiento
@@ -1501,47 +1495,41 @@ document.addEventListener("DOMContentLoaded", () => {
       form.querySelectorAll(".calc-error").forEach((e) => e.remove());
       form.querySelectorAll("[aria-invalid]").forEach((c) => {
         c.removeAttribute("aria-invalid");
-        if (c === inBateria) c.setAttribute("aria-describedby", "calc-bateria-ayuda");
-        else if (c === inInstagram) c.setAttribute("aria-describedby", "calc-instagram-ayuda");
-        else c.removeAttribute("aria-describedby");
+        if (c.dataset.ayuda) c.setAttribute("aria-describedby", c.dataset.ayuda); else c.removeAttribute("aria-describedby");
       });
     };
 
-    const actualizarLinkOtro = () => { waOtro.href = waLink(Calc.mensajeModeloNoListado(inOtro.value)); };
-    // "Mi modelo no está en la lista": sin capacidad ni batería, solo el modelo escrito + WhatsApp
+    // "Mi modelo no está en la lista": sin capacidad ni batería ni detalles; solo el modelo escrito (y los datos de contacto)
     const modoOtro = (on) => {
       fCap.hidden = on;
       fBat.hidden = on;
-      fInsta.hidden = on;
       filaDetalles.hidden = on;
       boxDetalles.hidden = on || !chkDetalles.checked;
-      boxOtro.hidden = !on;
-      btnCalcular.hidden = on;
-      if (on) actualizarLinkOtro();
+      fOtro.hidden = !on;
     };
 
     selModelo.addEventListener("change", () => {
       limpiar();
       if (selModelo.value === Calc.NO_LISTADO) { modoOtro(true); return; }
       modoOtro(false);
-      const m = Calc.buscarModelo(CANJE_TABLA, selModelo.value);
+      const m = Calc.buscarModelo(CANJE_OPCIONES, selModelo.value);
       selCap.replaceChildren(el("option", { value: "", text: "Elegí una capacidad" }),
-        ...(m ? m.capacidades : []).map((c) => el("option", { value: String(c.gb), text: c.gb + " GB" })));
+        ...(m ? m.capacidades : []).map((gb) => el("option", { value: String(gb), text: gb + " GB" })));
       selCap.disabled = !m;
-      if (m && m.capacidades.length === 1) selCap.value = String(m.capacidades[0].gb); // una sola memoria: ya elegida
+      if (m && m.capacidades.length === 1) selCap.value = String(m.capacidades[0]); // una sola memoria: ya elegida
     });
-    inOtro.addEventListener("input", actualizarLinkOtro);
-    [selCap, inBateria, txtDetalles, inInstagram].forEach((c) => c.addEventListener("input", limpiar));
+    [selCap, inBateria, txtDetalles, inOtro, inNombre, inWhatsapp, selDeseado, chkConsent].forEach((c) => c.addEventListener("input", limpiar));
     chkDetalles.addEventListener("change", () => { boxDetalles.hidden = !chkDetalles.checked; limpiar(); });
 
+    const controles = { modelo: selModelo, capacidad: selCap, bateria: inBateria, modeloTexto: inOtro, nombre: inNombre, whatsapp: inWhatsapp, consentimiento: chkConsent };
     const mostrarErrores = (errores) => {
-      const mapa = { modelo: selModelo, capacidad: selCap, bateria: inBateria, instagram: inInstagram };
       let primero = null;
       Object.keys(errores).forEach((k) => {
-        const control = mapa[k];
+        const control = controles[k];
+        if (!control) return;
         const id = "calc-error-" + k;
         control.setAttribute("aria-invalid", "true");
-        control.setAttribute("aria-describedby", (k === "bateria" ? "calc-bateria-ayuda " : k === "instagram" ? "calc-instagram-ayuda " : "") + id);
+        control.setAttribute("aria-describedby", (control.dataset.ayuda ? control.dataset.ayuda + " " : "") + id);
         control.closest(".calc-field").append(el("p", { class: "calc-error", id, role: "alert", text: errores[k] }));
         primero = primero || control;
       });
@@ -1550,63 +1538,105 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const botonWa = (texto, etiqueta, clase) =>
       el("a", { class: "btn " + clase, href: waLink(texto), target: "_blank", rel: "noopener", text: etiqueta });
+    const mostrarResultado = (partes) => {
+      resultado.replaceChildren(el("div", { class: "calc-card calc-card--result" }, partes));
+      resultado.focus();
+    };
 
-    form.addEventListener("submit", (e) => {
+    // La respuesta del servidor se acepta solo si tiene la forma esperada; si no, se trata como error (nunca se muestra un precio dudoso)
+    const num = (n) => typeof n === "number" && isFinite(n) && n > 0;
+    const respuestaValida = (r) => {
+      if (!r || typeof r !== "object" || typeof r.ok !== "boolean") return false;
+      if (!r.ok) return ["whatsapp", "nombre", "consentimiento"].includes(r.error);
+      if (r.tipo === "rango") return num(r.min) && num(r.max) && r.min <= r.max;
+      if (r.tipo === "hasta") return num(r.max);
+      return r.tipo === "consulta";
+    };
+
+    async function consultarServidor(payload) {
+      const url = typeof SITE_CONFIG !== "undefined" ? SITE_CONFIG.canjeWebhookUrl : "";
+      if (!url) throw new Error("sin endpoint");
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: ctrl.signal
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        if (!respuestaValida(data)) throw new Error("respuesta inválida");
+        return data;
+      } finally { clearTimeout(timer); }
+    }
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (btnEnviar.disabled) return;
       limpiar();
-      if (!puedeCotizar()) { form.hidden = true; limiteBox.hidden = false; return; }
       const entrada = {
         modeloId: selModelo.value,
         gb: selCap.value,
         bateria: inBateria.value,
         detalles: chkDetalles.checked,
         detallesTexto: txtDetalles.value,
-        modeloTexto: inOtro.value
+        modeloTexto: inOtro.value,
+        nombre: inNombre.value,
+        whatsapp: inWhatsapp.value,
+        consentimiento: chkConsent.checked
       };
-      const r = Calc.calcularCanje(CANJE_CONFIG, CANJE_TABLA, entrada, productos);
-      const errores = r.estado === "error" ? Object.assign({}, r.errores) : {};
-      const insta = inInstagram.value.trim().replace(/^@/, "");
-      if (!/^[A-Za-z0-9._]{1,30}$/.test(insta)) errores.instagram = "Escribí tu usuario de Instagram, por ejemplo @tecnolab.";
+      const errores = Calc.validarFormulario(CANJE_OPCIONES, entrada);
       if (Object.keys(errores).length) { mostrarErrores(errores); return; }
 
-      // Una cotización válida: cuenta para el límite diario y queda en el log local (no se envía a ningún servidor)
-      const bateriaNum = Number(inBateria.value);
-      const bajaBateria = r.estado === "valor" && r.tope; // por debajo del nivel más bajo (75%): valoración en el local
-      registrarCotizacion();
-      guardarLog("@" + insta, r.modelo ? r.modelo.nombre : "", r.capacidad ? r.capacidad.gb + "GB" : "", bateriaNum,
-        r.estado === "valor" && !bajaBateria ? money(r.valor) : null);
+      const modelo = Calc.buscarModelo(CANJE_OPCIONES, entrada.modeloId);
+      const bateria = Calc.parsearBateria(entrada.bateria);
+      const payload = {
+        nombre: entrada.nombre.trim(),
+        whatsapp: entrada.whatsapp.trim(),
+        modelo: modelo ? modelo.nombre : "",
+        capacidad: modelo ? Number(entrada.gb) : null,
+        bateria: modelo ? bateria : null,
+        detalles: modelo ? entrada.detalles : false,
+        detallesTexto: modelo && entrada.detalles ? entrada.detallesTexto.trim() : "",
+        modeloTexto: modelo ? "" : entrada.modeloTexto.trim(),
+        deseado: selDeseado.value,
+        consentimiento: true,
+        web: inTrampa.value,
+        fuente: "calculadora"
+      };
+      const mensajeWa = Calc.mensajeWhatsApp(modelo, entrada, bateria, selDeseado.value);
 
-      const partes = [];
-      if (bajaBateria) {
-        partes.push(el("p", { class: "calc-consulta", text: "Tu equipo tiene una batería muy baja. Visitanos en el local para una valuación personalizada." }));
-      } else if (r.estado === "valor") {
-        partes.push(el("p", { class: "calc-valor-wrap" },
-          el("span", { class: "calc-valor-label", text: "Valor estimado:" }),
-          el("strong", { class: "calc-valor", text: money(r.valor) })),
-          el("p", { class: "calc-tramo", text: r.tramoTexto }));
-      } else {
-        partes.push(el("p", { class: "calc-consulta", text: r.mensaje }));
+      btnEnviar.disabled = true;
+      btnEnviar.setAttribute("aria-busy", "true");
+      btnEnviar.textContent = "Calculando…";
+      try {
+        const r = await consultarServidor(payload);
+        if (!r.ok) { mostrarErrores({ [r.error]: Calc.MENSAJES_SERVIDOR[r.error] }); return; }
+        const partes = [];
+        if (r.tipo === "rango") {
+          partes.push(el("p", { class: "calc-consulta", text: "Tu iPhone vale entre " + Calc.formatearMonto(r.moneda, r.min) + " y " + Calc.formatearMonto(r.moneda, r.max) }));
+        } else if (r.tipo === "hasta") {
+          partes.push(el("p", { class: "calc-consulta", text: "Tu iPhone vale hasta " + Calc.formatearMonto(r.moneda, r.max) }),
+            el("p", { class: "calc-tramo", text: "El valor final se confirma en el local, según el estado real del equipo." }));
+        } else {
+          partes.push(el("p", { class: "calc-consulta", text: "Tenemos que evaluar tu equipo. Te escribimos por WhatsApp con la cotización." }));
+        }
+        partes.push(el("p", { class: "calc-help", text: "Te escribimos por WhatsApp para confirmarte el precio final." }),
+          el("p", { class: "calc-aviso", text: CANJE_CONFIG.avisoLegal }),
+          el("div", { class: "calc-acciones" }, botonWa(mensajeWa, "Hablar ahora por WhatsApp", "btn-outline")));
+        mostrarResultado(partes);
+      } catch (err) {
+        // Red caída, timeout, HTTP de error o respuesta rara: nunca se muestra un precio
+        mostrarResultado([
+          el("p", { class: "calc-consulta", text: "No pudimos calcularlo ahora. Escribinos por WhatsApp y te lo pasamos al instante." }),
+          el("div", { class: "calc-acciones" }, botonWa(mensajeWa, "Escribinos por WhatsApp", "btn-primary"))]);
+      } finally {
+        btnEnviar.disabled = false;
+        btnEnviar.removeAttribute("aria-busy");
+        btnEnviar.textContent = "Ver mi valor estimado";
       }
-      partes.push(el("p", { class: "calc-aviso", text: CANJE_CONFIG.avisoLegal }));
-
-      if (r.estado === "valor" && !bajaBateria && r.escalones.length) {
-        partes.push(
-          el("h3", { class: "calc-escalones-titulo", text: "Si querés cambiar por otro equipo" }),
-          el("p", { class: "calc-help", text: "Estos son los equipos del catálogo con la diferencia que sumarías en cada caso:" }),
-          el("ol", { class: "calc-escalones" }, r.escalones.map((s) =>
-            el("li", { class: "calc-escalon" },
-              el("p", { class: "calc-escalon-nombre", text: s.etiqueta }),
-              el("p", { class: "calc-escalon-precio", text: "Precio de lista: " + money(s.precio) }),
-              el("p", { class: "calc-escalon-paga" }, "Pagás ", el("strong", { text: money(s.diferencia) })),
-              s.sumaVsAnterior > 0
-                ? el("p", { class: "calc-escalon-suma", text: "Sumando solo " + money(s.sumaVsAnterior) + " más pasás al " + s.etiqueta })
-                : null,
-              botonWa(Calc.mensajeWhatsApp(CANJE_CONFIG, CANJE_TABLA, entrada, r, s.etiqueta), "Quiero este equipo", "btn-outline")))));
-      }
-      partes.push(el("div", { class: "calc-acciones" },
-        botonWa(Calc.mensajeWhatsApp(CANJE_CONFIG, CANJE_TABLA, entrada, r, ""),
-          r.estado === "valor" && !bajaBateria ? "Confirmar por WhatsApp" : "Consultar por WhatsApp", "btn-primary")));
-      resultado.append(el("div", { class: "calc-card calc-card--result" }, partes));
     });
   }
   try { initCalculadora(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }

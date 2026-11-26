@@ -1922,6 +1922,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
 
 .calc select,
 .calc input[type="number"],
+.calc input[type="tel"],
 .calc input[type="text"],
 .calc textarea {
   width: 100%;
@@ -1955,6 +1956,13 @@ a, button { -webkit-tap-highlight-color: transparent; }
 }
 
 .calc-submit { width: 100%; min-height: 48px; font-size: var(--fs-body); }
+.calc-submit:disabled { opacity: 0.6; cursor: progress; }
+/* Campo trampa anti-bots: fuera de pantalla (no display:none, para que los bots lo vean); no se completa */
+.calc-trampa { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.calc-result:focus { outline: none; }
+.calc-field--check { margin-bottom: 20px; }
+.calc-field--check .calc-check { margin-bottom: 0; }
+.calc-check a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 
 .calc-valor-wrap { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
 .calc-valor-label { font-size: var(--fs-small); font-weight: 600; color: var(--fg-2); }
