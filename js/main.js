@@ -37,71 +37,6 @@ const FRANJA_SEG_POR_TARJETA = 16; // duración del loop de reseñas = cantidad 
 
 document.addEventListener("DOMContentLoaded", () => {
   /* ============================================================
-     MAPA DE SUCURSAL — Leaflet + tiles oscuros de Esri (sin key).
-     Leaflet (CSS + JS) no se pide al abrir el Home: se inyecta recién
-     cuando el contenedor del mapa está a menos de 400px del viewport.
-     ============================================================ */
-  function initBranchMap() {
-    const el = document.getElementById("home-branch-map");
-    if (!el || typeof L === "undefined") return;
-
-    const MOLDES = [-32.9132971, -68.8322202]; // confirmado en Google Maps
-    // const CHAMPAGNAT = [lat, lng]; // pendiente de confirmar con el cliente — sumar acá cuando esté
-
-    const map = L.map(el, {
-      center: MOLDES,
-      zoom: 15,
-      scrollWheelZoom: false,
-      zoomControl: false,
-      attributionControl: true,
-    });
-
-    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
-      attribution: 'Tiles © Esri — Esri, HERE, Garmin, FAO, NOAA, USGS',
-      maxZoom: 16,
-    }).addTo(map);
-
-    const pinIcon = L.divIcon({
-      className: "brand-map-pin",
-      html: '<div class="brand-map-pin-dot"></div>',
-      iconSize: [28, 28],
-      iconAnchor: [14, 28],
-    });
-
-    L.marker(MOLDES, { icon: pinIcon }).addTo(map);
-  }
-
-  function loadBranchMap() {
-    const el = document.getElementById("home-branch-map");
-    if (!el) return;
-    const LEAFLET = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
-
-    const load = () => {
-      const css = document.createElement("link");
-      css.rel = "stylesheet";
-      css.href = LEAFLET + "leaflet.min.css";
-      document.head.appendChild(css);
-
-      const js = document.createElement("script");
-      js.src = LEAFLET + "leaflet.min.js";
-      js.onload = initBranchMap;
-      document.head.appendChild(js);
-    };
-
-    if (!("IntersectionObserver" in window)) {
-      load();
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((e) => e.isIntersecting)) return;
-      observer.disconnect();
-      load();
-    }, { rootMargin: "400px" });
-    observer.observe(el);
-  }
-
-
-  /* ============================================================
      NAV MOBILE
      ============================================================ */
   const navToggle = document.querySelector(".nav-toggle");
@@ -1378,7 +1313,6 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ============================================================
      MAPA — se carga solo en el Home, cuando se acerca al viewport
      ============================================================ */
-  try { loadBranchMap(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
   /* ============================================================
      STAT NUMBERS — conteo 0 → valor final al entrar en viewport.
@@ -1424,17 +1358,25 @@ document.addEventListener("DOMContentLoaded", () => {
   try { applyWhatsAppLinks(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
 
   /* ============================================================
-     REVELADO DE TÍTULOS — h2 de las secciones: opacidad + translateY(12px),
-     una sola vez al entrar en viewport. Sin movimiento (reduced-motion) o sin
-     IntersectionObserver no se oculta nada. El CSS vive en style.css (.reveal).
+     REVELADO DE TÍTULOS (y [data-reveal]) — h2 de las secciones y elementos
+     marcados con data-reveal: opacidad + translateY, una sola vez al entrar en
+     viewport. Los [data-reveal] que entran juntos se escalonan en orden del
+     documento (--reveal-delay, de a REVEAL_STAGGER ms); los h2 no se demoran.
+     Sin movimiento (reduced-motion) o sin IntersectionObserver no se oculta
+     nada. El CSS vive en style.css (.reveal; las cards de #plan-canje suman el suyo).
      ============================================================ */
   function initTitleReveal() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return;
-    const titles = document.querySelectorAll("main h2:not(.hero h2):not(#calculadora h2)");
+    const titles = document.querySelectorAll("main h2:not(.hero h2):not(#calculadora h2), main [data-reveal]");
     if (!titles.length) return;
+    const REVEAL_STAGGER = 150;
     const observer = new IntersectionObserver((entries) => {
+      let enTanda = 0; // [data-reveal] que entran en este mismo aviso del observer
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
+        if (entry.target.hasAttribute("data-reveal")) {
+          entry.target.style.setProperty("--reveal-delay", enTanda++ * REVEAL_STAGGER + "ms");
+        }
         entry.target.classList.add("is-in");
         observer.unobserve(entry.target);
       });
@@ -1684,6 +1626,29 @@ document.addEventListener("DOMContentLoaded", () => {
     const coma = (n) => String(n).replace(".", ",");
     const corto = { dorrego: "Sucursal Dorrego", lomas: "Sucursal Lomas" };
 
+    // Componente único de estrellas: un <symbol> SVG que se inyecta una sola vez y 5 <use> por grupo (role="img").
+    const NS = "http://www.w3.org/2000/svg";
+    function estrellas() {
+      if (!document.getElementById("icono-estrella")) {
+        const sprite = document.createElementNS(NS, "svg");
+        sprite.setAttribute("width", "0"); sprite.setAttribute("height", "0");
+        sprite.setAttribute("aria-hidden", "true"); sprite.style.position = "absolute";
+        sprite.innerHTML = '<symbol id="icono-estrella" viewBox="0 0 24 24"><path d="M12 2.5l2.94 6.1 6.56.9-4.8 4.6 1.2 6.6L12 17.5l-5.9 3.2 1.2-6.6-4.8-4.6 6.56-.9z"></path></symbol>';
+        document.body.prepend(sprite);
+      }
+      const g = mk("span", "estrellas");
+      g.setAttribute("role", "img");
+      g.setAttribute("aria-label", "5 de 5 estrellas");
+      for (let i = 0; i < 5; i++) {
+        const svg = document.createElementNS(NS, "svg");
+        svg.setAttribute("aria-hidden", "true"); svg.setAttribute("focusable", "false");
+        const use = document.createElementNS(NS, "use");
+        use.setAttribute("href", "#icono-estrella");
+        svg.append(use); g.append(svg);
+      }
+      return g;
+    }
+
     // ---------- a) franja ----------
     const fr = document.getElementById("opiniones-franja");
     if (fr) {
@@ -1692,8 +1657,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const a = mk("a");
         a.href = suc.mapsUrl; a.target = "_blank"; a.rel = "noopener";
         a.setAttribute("aria-label", (corto[suc.id] || suc.nombre) + ": 5 estrellas en Google Maps");
-        const nota = mk("span", "opiniones-nota"); nota.append(document.createTextNode("5 "), mk("span", "estrella", "★"));
-        a.append(nota, mk("span", "opiniones-suc", corto[suc.id] || suc.nombre));
+        a.append(estrellas(), mk("span", "opiniones-suc", corto[suc.id] || suc.nombre));
         score.append(a);
       });
       fr.querySelector(".opiniones-legend").textContent = "Datos de Google Maps, " + (typeof RESENAS_ACTUALIZADO !== "undefined" ? RESENAS_ACTUALIZADO : "");
@@ -1705,7 +1669,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (r.localGuide) datos.append(mk("span", "opinion-card-badge", "Local Guide"));
         const autor = mk("div", "opinion-card-autor");
         autor.append(mk("span", "opinion-card-inicial", r.autor.charAt(0)), datos);
-        card.append(mk("blockquote", "", r.texto), autor);
+        card.append(estrellas(), mk("blockquote", "", r.texto), autor);
         return card;
       };
       const listas = SUCURSALES_RESENAS.map((s) => s.resenas.map((r) => ({ r, s })));

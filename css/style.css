@@ -1465,29 +1465,131 @@ html[data-glass="liquid"] .hero-btn--ghost {
 /* ==========================================================================
    PLAN CANJE
    ========================================================================== */
-/* Home: encabezado centrado, 3 tarjetas parejas y franja de acción */
-.canje-grid { display: grid; grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: 16px; }
+/* Home (#plan-canje): «PLAN CANJE» en tamaño display, subtítulo, 3 pasos con ilustración propia
+   (SVG de línea en los azules de marca) y número grande de fondo, conector entre pasos en escritorio
+   y franja de acción. Las cards entran escalonadas con el revelado de js/main.js ([data-reveal]).
+   Layout de las cards: celular apiladas (ilustración arriba) · 600–1023 en columna con ilustración a la
+   izquierda · ≥1024 tres columnas con conector. */
+#plan-canje {
+  /* «PLAN CANJE» entra en una línea desde 320px (Montserrat SemiBold ≈ 6,6em de ancho) */
+  --canje-title-fs: clamp(38px, 12.5vw, 120px);
+  /* el número de fondo nunca supera al título: el título es lo más grande de la sección */
+  --canje-num-fs: clamp(36px, 7.5vw, 96px);
+  --canje-art: 88px;
+  --canje-pad: 28px;
+  --canje-gap: 16px;
+}
+#plan-canje .section-head { margin-bottom: clamp(40px, 5vw, 64px); }
+#plan-canje .canje-title {
+  max-width: none;
+  font-size: var(--canje-title-fs);
+  line-height: 0.95;
+  letter-spacing: -0.01em;
+}
+#plan-canje .canje-subtitle {
+  margin: 20px auto 0;
+  max-width: 26ch;
+  font-size: clamp(20px, 2.4vw, 28px);
+  font-weight: var(--fw-title);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  text-wrap: balance;
+}
+#plan-canje .section-head .lede { margin: 12px auto 0; max-width: 48ch; }
+
+.canje-grid { display: grid; grid-template-columns: 1fr; gap: var(--canje-gap); }
 .canje-card {
   position: relative;
+  isolation: isolate; /* el número (z-index: -1) queda detrás del contenido y delante del fondo de la card */
   display: flex;
   flex-direction: column;
-  padding: 32px 28px;
+  gap: 24px;
+  padding: var(--canje-pad);
   border-radius: var(--radius-product);
   background: var(--white);
   box-shadow: var(--shadow-card);
 }
-.canje-card-icon { display: inline-flex; width: 48px; height: 48px; margin-bottom: 24px; color: var(--blue-on-light); }
-.canje-card-icon svg { width: 100%; height: 100%; }
-.canje-card-num { position: absolute; top: 28px; right: 28px; font-size: var(--fs-h3); font-weight: var(--fw-title); line-height: 1; color: var(--blue-on-light); }
-.canje-card h3 { font-size: var(--fs-body); letter-spacing: 0; line-height: 1.4; margin-bottom: 8px; }
-.canje-card p { font-size: var(--fs-small); line-height: 1.5; color: var(--text-2); }
+.canje-card-num {
+  position: absolute;
+  top: calc(var(--canje-pad) - 0.1em);
+  right: calc(var(--canje-pad) - 0.06em);
+  z-index: -1;
+  font-size: var(--canje-num-fs);
+  font-weight: var(--fw-title);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: rgba(var(--blue-rgb), 0.18);
+  pointer-events: none;
+  user-select: none;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .canje-card-num {
+    background: linear-gradient(180deg, rgba(var(--blue-rgb), 0.36) 0%, rgba(var(--blue-rgb), 0.06) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+/* Ilustraciones: trazo en el azul legible sobre claro, acentos en el azul de marca, círculo suave de fondo */
+.canje-art { display: block; flex: none; width: var(--canje-art); height: var(--canje-art); overflow: visible; color: var(--blue-on-light); }
+.canje-art .art-soft { fill: rgba(var(--blue-rgb), 0.1); stroke: none; }
+.canje-art .art-cover { fill: var(--white); }
+.canje-art .art-accent { stroke: var(--blue); }
+.canje-art .art-bold { stroke-width: 4.5; }
+.canje-art .art-island { stroke-width: 5; }
+.canje-card-body { display: flex; flex-direction: column; gap: 8px; }
+.canje-card h3 { font-size: var(--fs-h3); line-height: 1.25; }
+.canje-card p { max-width: 32ch; font-size: var(--fs-body); line-height: 1.5; color: var(--text-2); }
+.canje-connector { display: none; }
+
 .canje-actions { display: flex; flex-direction: column; gap: 12px; align-items: stretch; margin-top: var(--space-block); }
 .canje-legal { margin: 20px auto 0; max-width: 56ch; text-align: center; font-size: 13px; line-height: 1.5; color: var(--text-2); }
+
+@media (min-width: 600px) {
+  #plan-canje { --canje-art: 104px; --canje-pad: 32px; --canje-gap: 20px; }
+  .canje-card { flex-direction: row; align-items: center; gap: 32px; }
+  .canje-card-body { padding-right: calc(var(--canje-num-fs) * 1.3); } /* el texto no pasa por debajo del número */
+}
 @media (min-width: 768px) {
-  .canje-grid { grid-template-columns: repeat(3, 1fr); gap: 24px; }
   .canje-actions { flex-direction: row; justify-content: center; }
 }
-#plan-canje .section-head .lede { margin: 16px auto 0; max-width: 48ch; }
+@media (min-width: 1024px) {
+  #plan-canje { --canje-art: clamp(112px, 9.4vw, 124px); --canje-pad: clamp(32px, 3vw, 40px); --canje-gap: clamp(48px, 5vw, 72px); }
+  .canje-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; }
+  .canje-card { flex-direction: column; align-items: stretch; gap: 32px; }
+  .canje-card-body { padding-right: 0; }
+  /* Conector: flecha punteada en el hueco entre cards, a la altura del centro de la ilustración */
+  .canje-connector {
+    display: block;
+    position: absolute;
+    top: calc(var(--canje-pad) + var(--canje-art) / 2 - 8px);
+    left: 100%;
+    width: var(--canje-gap);
+    height: 16px;
+    color: var(--blue-on-light);
+  }
+  .canje-connector svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .canje-connector-line { stroke-dasharray: 0 7; }
+}
+
+/* Entrada escalonada (solo con movimiento permitido: js/main.js no agrega .reveal con reduced-motion).
+   La card sube y aparece; después la ilustración hace un pequeño rebote y el conector se dibuja hacia la siguiente. */
+@media (prefers-reduced-motion: no-preference) {
+  .canje-card.reveal:not(.is-in) { transform: translateY(32px); }
+  .canje-card.reveal.is-in { transition-duration: 700ms; transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  .canje-card.reveal .canje-art { transform: scale(0.82); transform-origin: 50% 60%; }
+  .canje-card.reveal.is-in .canje-art {
+    transform: none;
+    transition: transform 650ms cubic-bezier(0.34, 1.56, 0.64, 1) calc(var(--reveal-delay, 0ms) + 120ms);
+  }
+  .canje-card.reveal .canje-connector { clip-path: inset(0 100% 0 0); }
+  .canje-card.reveal.is-in .canje-connector {
+    clip-path: inset(0 0 0 0);
+    transition: clip-path 500ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--reveal-delay, 0ms) + 380ms);
+  }
+}
 
 /* Plan Canje (página): 3 pasos en columnas */
 .steps-grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
@@ -1546,33 +1648,20 @@ html[data-glass="liquid"] .hero-btn--ghost {
    SUCURSALES
    ========================================================================== */
 .branches { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: stretch; }
-@media (min-width: 900px) { .branches { grid-template-columns: 1.5fr 1fr; } }
+@media (min-width: 900px) { .branches { grid-template-columns: 1fr 1fr; } }
 
-.branch-map-card { position: relative; border-radius: var(--radius-card); overflow: hidden; min-height: 400px; }
-/* Fondo gris neutro: es lo que se ve hasta que carga Leaflet (o si no carga);
-   la dirección en texto está en .branch-map-label. */
-.branch-map { position: absolute; inset: 0; background: #1b1438; }
-.branch-map-label {
-  position: absolute;
-  left: 16px; right: 16px; bottom: 36px;
-  z-index: 500;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 20px;
-  border-radius: var(--radius-media);
-  background: rgba(18, 10, 46, 0.92);
-}
-.branch-map-label {
-  --fg: var(--text-inv);
-  --accent: var(--blue);
-  --line-strong: rgba(255, 255, 255, 0.5);
-}
-.branch-map-label div { display: flex; flex-direction: column; }
-.branch-map-name { font-weight: 600; color: var(--text-inv); }
-.branch-map-address { font-size: var(--fs-small); color: var(--text-inv-2); }
+/* Tarjeta de sucursal: mapa de Google (iframe por dirección) arriba, datos debajo.
+   En celular el iframe no captura el gesto (pointer-events: none) para que el scroll de la página no se trabe en el mapa;
+   «Cómo llegar» abre Google Maps. */
+.branch-card { display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius-card); background: var(--white); box-shadow: var(--shadow-card); }
+.branch-card-map { position: relative; aspect-ratio: 16 / 10; background: #E8E8ED; }
+.branch-card-map iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+@media (max-width: 899px) { .branch-card-map iframe { pointer-events: none; } }
+.branch-card-info { display: flex; flex: 1; flex-direction: column; justify-content: space-between; gap: 20px; padding: 24px 28px 28px; }
+.branch-card-head { display: flex; flex-direction: column; }
+.branch-card .branch-map-name { margin: 0 0 4px; font-size: var(--fs-h3); font-weight: var(--fw-title); line-height: 1.25; color: var(--fg); }
+.branch-card .branch-map-address { font-size: var(--fs-body); color: var(--fg); }
+.branch-card-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 
 .branches-lite { display: grid; grid-template-columns: 1fr; gap: 24px; }
 @media (min-width: 700px) { .branches-lite { grid-template-columns: 1fr 1fr; } }
@@ -1595,22 +1684,6 @@ html[data-glass="liquid"] .hero-btn--ghost {
 .branch-lite-address { font-size: var(--fs-h3); font-weight: var(--fw-title); color: var(--fg); margin-bottom: 8px; }
 .branch-lite-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 
-.brand-map-pin-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50% 50% 50% 0;
-  background: var(--blue);
-  transform: rotate(-45deg);
-  box-shadow: 0 0 0 6px rgba(var(--blue-rgb), 0.25);
-}
-.brand-map-pin-dot::after {
-  content: "";
-  position: absolute;
-  width: 10px; height: 10px;
-  background: var(--surface-0);
-  border-radius: 50%;
-  top: 9px; left: 9px;
-}
 
 /* ---- Accesorios (catálogo) ---- */
 .accessories-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
@@ -1643,6 +1716,8 @@ html[data-glass="liquid"] .hero-btn--ghost {
 .footer-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 48px; margin-bottom: 48px; }
 .footer-logo img { height: 46px; width: auto; margin-bottom: 16px; }
 .footer-logo p { max-width: 280px; font-size: var(--fs-small); color: #6E6E73; }
+.footer-logo .footer-multi { margin-top: 12px; }
+.footer-logo .footer-aviso { margin-top: 12px; font-size: 12px; line-height: 1.45; }
 .footer-col h3 {
   margin-bottom: 12px;
   font-size: var(--fs-small);
@@ -1786,12 +1861,14 @@ a, button { -webkit-tap-highlight-color: transparent; }
     .main-nav.is-open { opacity: 1; transition: opacity 200ms ease-out, visibility 0s; }
   }
 
-  /* Títulos: revelado único al entrar en viewport (js/main.js agrega .reveal / .is-in) */
+  /* Títulos y [data-reveal]: revelado único al entrar en viewport (js/main.js agrega .reveal / .is-in).
+     --reveal-delay escalona los [data-reveal] que entran juntos; los títulos no lo llevan (0 ms). */
   .reveal { opacity: 0; transform: translateY(12px); }
   .reveal.is-in {
     opacity: 1;
     transform: none;
     transition: opacity 500ms ease-out, transform 500ms ease-out;
+    transition-delay: var(--reveal-delay, 0ms);
   }
 }
 
@@ -2303,8 +2380,9 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
 }
 .opiniones-score a:hover { box-shadow: var(--shadow-card-hover); }
 .opiniones-score a:focus-visible { outline: 2px solid var(--blue-on-light); outline-offset: 3px; }
-.opiniones-score .estrella { color: #F5A524; }
-.opiniones-nota { font-size: 18px; font-weight: 600; line-height: 1.1; }
+/* Estrellas (js/main.js → estrellas()): mismo tamaño en la franja y en las tarjetas, en dorado */
+.estrellas { display: inline-flex; gap: 2px; color: #F5A524; line-height: 0; }
+.estrellas svg { width: 16px; height: 16px; fill: currentColor; }
 .opiniones-suc { font-size: 12px; font-weight: 300; line-height: 1.2; color: var(--fg-2); }
 /* 13px desde 379px hacia abajo (la spec pedía ≤359): a 360px las dos pills no entran en una fila con 14px */
 @media (max-width: 379px) { .opiniones-score a { font-size: 13px; padding: 8px 14px; } }
@@ -2345,7 +2423,9 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
 .franja-marquee:focus-within .franja-pista { animation-play-state: paused; }
 .franja-marquee:focus-visible { outline: 2px solid var(--blue-on-light); outline-offset: -2px; }
 .franja-pista .opinion-card { flex: 0 0 400px; margin-right: 16px; padding: 28px 32px; gap: 18px; }
-.franja-pista .opinion-card blockquote { font-size: 13px; line-height: 1.42; }
+.franja-pista .opinion-card { gap: 16px; }
+.opinion-card .estrellas { align-self: flex-start; }
+.opinion-card blockquote { font-size: 13px; line-height: 1.42; }
 @media (max-width: 699px) { .franja-pista .opinion-card { flex-basis: min(320px, 82vw); } }
 @media (prefers-reduced-motion: reduce) {
   .franja-pista { animation: none; will-change: auto; padding-inline: max(var(--space-gutter), calc((100vw - var(--container-max)) / 2 + var(--space-gutter))); }
@@ -2465,10 +2545,6 @@ html.nav-panel-open .site-header, html.dialog-open .site-header { right: var(--s
 }
 .branch-estado::before { content: ''; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: #8E8E93; }
 .branch-estado[data-abierto="1"]::before { background: #1FA44A; }
-.branch-map-label { --fg-2: var(--text-inv-2); }
-.branch-map-label .branch-estado[data-abierto="1"]::before { background: #30D158; }
-.branch-map-label .branch-horario { margin: 8px 0 4px; }
-.branch-map-label .branch-tel { color: var(--text-inv); }
 
 /* Foco de teclado sobre el degradé: outline blanco de 2px con offset 3px */
 .bg-post a:focus-visible, .bg-post button:focus-visible, .bg-post .btn:focus-visible, .bg-post [tabindex]:focus-visible { outline: 2px solid #FFFFFF; outline-offset: 3px; }
