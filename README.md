@@ -1,12 +1,12 @@
 # Tecnolab — sitio web
 
-Sitio estático (HTML/CSS/JS vanilla) desplegado en Vercel. **Sin build**: lo que está en el repo es lo que se publica.
+Sitio estático (HTML/CSS/JS vanilla) desplegado en Vercel. **Sin build en el deploy**: lo que está en el repo es lo que se publica. Los archivos fuente (`css/style.css`, `js/*.js`) se editan a mano; los `.min` que cargan los HTML se generan con `npm run build` y también se versionan.
 
 ## Estructura
 
 ```
 index.html  catalogo.html  service.html  plan-canje.html  nosotros.html  404.html
-css/style.css            Todo el CSS (variables de marca al principio).
+css/style.css            Todo el CSS (variables de marca al principio). style.min.css = versión minificada (npm run build).
 js/main.js               Toda la interacción (menú, catálogo, carrusel, calculadora, opiniones, horarios…).
 js/hero-glass.js         Lente de cristal del logo del hero (WebGL). Solo se descarga con mouse fino (ver index.html).
 js/glass-button.js       Vidrio líquido del botón «Ver catálogo» del hero (solo index.html; filtro propio #lg-refract-btn).
@@ -25,7 +25,7 @@ vercel.json  robots.txt  sitemap.xml
 
 1. **WhatsApp**: `whatsappNumber` en `js/config.js` (formato internacional, sin `+`). Los `href` de respaldo de los HTML llevan el mismo número.
 2. **Dominio**: `siteUrl` en `js/config.js` y el mismo dominio en `canonical` / `og:url` de cada HTML, en `sitemap.xml` y en `robots.txt`.
-3. **Subir `?v=`** (ver abajo) si cambió algún CSS o JS.
+3. Si cambió algún CSS o JS: **`npm run build`** (regenera los `.min`) y **subir `?v=`** (ver abajo).
 4. Correr las pruebas (ver abajo).
 
 ## Fondo de las secciones oscuras (`.bg-post`)
@@ -69,15 +69,32 @@ Los horarios vienen de Google Maps: actualizar a mano si cambian.
 **Imágenes** — `assets/*` se sirve con `Cache-Control: immutable` por un año (`vercel.json`): si se reemplaza una imagen,
 **cambiarle el nombre** (y la referencia). Para convertir fotos nuevas: `cd scripts && npm install && node optimize-images.js`.
 
-## Cache de CSS y JS: `?v=`
+## Minificado: `npm run build`
 
-Todos los `<link>` y `<script>` de los HTML llevan `?v=N` (también el loader de `hero-glass.js` en `index.html`).
-**Subirlo en cada entrega que cambie `css/style.css` o algo de `js/`**, para que los visitantes recurrentes bajen los archivos nuevos:
+Los HTML cargan `css/style.min.css` y `js/*.min.js`. Se generan desde los fuente con esbuild (los fuente no cambian):
 
 ```bash
-node scripts/subir-version.js        # suma 1 en los 6 HTML
+npm install        # una sola vez (esbuild)
+npm run build      # regenera css/*.min.css y js/*.min.js (scripts/build.js)
+```
+
+- **Editá siempre el fuente** (`css/style.css`, `js/main.js`, …), nunca el `.min`. Si no corrés `npm run build`, el sitio sigue sirviendo el `.min` viejo.
+- Cada archivo se minifica por separado, sin agruparlos: se conserva el orden de los `<script defer>` y los nombres globales entre scripts.
+- `js/products-data.js` y demás archivos de datos también tienen su `.min`: si los regenerás (scripts/cargar-datos.md), corré el build.
+
+## Cache de CSS y JS: `?v=` (obligatorio)
+
+`/css/*` y `/js/*` se sirven con `Cache-Control: public, max-age=31536000, immutable` (vercel.json): el navegador no vuelve a preguntar por un año.
+**Regla: si cambia un CSS o JS, subir el `?v=` en todos los HTML.** Sin eso, los visitantes recurrentes siguen viendo la versión vieja. El HTML se sirve siempre con revalidación, así que el `?v=` nuevo les llega enseguida.
+Todos los `<link>` y `<script>` de los HTML llevan `?v=N` (también el loader de `hero-glass.min.js` en `index.html`):
+
+```bash
+npm run build                        # primero los .min
+node scripts/subir-version.js        # suma 1 en todos los HTML
 node scripts/subir-version.js --ver  # muestra el valor actual y avisa si hay valores distintos
 ```
+
+Las imágenes de `assets/` ya tienen caché de un año: si cambia una foto, se le cambia el nombre. Las tipografías (`assets/fonts/`, Montserrat 300 y 600, latin y latin-ext) se alojan en el sitio: no hay pedidos a Google Fonts.
 
 ## Pruebas y chequeos
 

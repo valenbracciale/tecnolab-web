@@ -811,6 +811,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function escAttr(t) { return String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;"); }
+  // Fotos locales «*-t.webp» tienen una versión de 400px (*-t-400.webp): el navegador elige según el ancho de la card. Las demás (Supabase, etc.) van sin srcset.
+  const SRCSET_SIZES = "(max-width: 559px) 64vw, 300px";
+  function srcsetDe(src) {
+    const m = /^(assets\/img\/.+)-t\.webp$/.exec(src || "");
+    if (m) return m[1] + "-t-400.webp 400w, " + src + " 800w";
+    // Fotos de iPhone cargadas por modelo/color («iphone-15-pro-azul.webp»): la chica es «iphone-15-pro-azul-400.webp»
+    const n = /^(assets\/img\/iphone-\d+[a-z0-9-]*)\.webp$/.exec(src || "");
+    return n ? n[1] + "-400.webp 400w, " + src + " 800w" : "";
+  }
+  function srcsetAttr(src) { const ss = srcsetDe(src); return ss ? ` srcset="${escAttr(ss)}" sizes="${SRCSET_SIZES}"` : ""; }
 
   // Precio visible de un producto: { desde, texto }. Accesorios: el precio guardado (precioNum) solo se
   // imprime con ACCESORIOS_CONFIG.mostrarPrecio === true; en cualquier otro caso, «Consultar».
@@ -1029,9 +1039,9 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="product-card-media${imgCard || fotosCard.length ? "" : " product-card-media--vacio"}">
           ${usado ? `<span class="product-card-tag">Usado${bat !== null ? " · " + bat + "%" : ""}</span>` : ""}
           ${fotosCard.length
-            ? `<img src="${escAttr(fotosCard[0])}" alt="${escAttr(p.nombre)}" width="728" height="666" loading="${eager ? "eager" : "lazy"}"${alta ? " fetchpriority=\"high\"" : ""} decoding="async">`
+            ? `<img src="${escAttr(fotosCard[0])}"${srcsetAttr(fotosCard[0])} alt="${escAttr(p.nombre)}" width="728" height="666" loading="${eager ? "eager" : "lazy"}"${alta ? " fetchpriority=\"high\"" : ""} decoding="async">`
             : imgCard
-            ? `<img src="${escAttr(imgCard)}" alt="${escAttr(esAccesorio ? p.nombre : p.nombre + " color " + colores[0].nombre.toLowerCase())}" width="728" height="666" loading="${eager ? "eager" : "lazy"}"${alta ? " fetchpriority=\"high\"" : ""} decoding="async">`
+            ? `<img src="${escAttr(imgCard)}"${srcsetAttr(imgCard)} alt="${escAttr(esAccesorio ? p.nombre : p.nombre + " color " + colores[0].nombre.toLowerCase())}" width="728" height="666" loading="${eager ? "eager" : "lazy"}"${alta ? " fetchpriority=\"high\"" : ""} decoding="async">`
             : `<div class="product-card-media-placeholder">${p.categoria === "iPhone" ? ICONO_TELEFONO : ICONO_CAJA}<span>Foto próximamente</span></div>`
           }
           ${regalosCard.length ? giftOverlayHTML("gift-" + escAttr(p.id)) : ""}
@@ -1050,6 +1060,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const card = swatch.closest(".product-card");
     const img = card && card.querySelector(".product-card-media img");
     if (img) {
+      const ss = srcsetDe(swatch.dataset.img);
+      if (ss) { img.srcset = ss; img.sizes = SRCSET_SIZES; } else img.removeAttribute("srcset");
       img.src = swatch.dataset.img;
       if (swatch.dataset.alt) img.alt = swatch.dataset.alt;
     }
@@ -1069,8 +1081,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!cont) return;
     const aplicar = () => {
       const cards = cont.querySelectorAll(".product-card");
-      cont.classList.toggle("has-promos", !!cont.querySelector(".product-card-promo"));
-      cont.classList.toggle("has-swatches", !!cont.querySelector(".color-swatches"));
+      // Listado paginado: las banderas se calculan sobre TODO el listado (data-promos / data-swatches) para que no cambien al sumar cards
+      cont.classList.toggle("has-promos", cont.dataset.promos ? cont.dataset.promos === "1" : !!cont.querySelector(".product-card-promo"));
+      cont.classList.toggle("has-swatches", cont.dataset.swatches ? cont.dataset.swatches === "1" : !!cont.querySelector(".color-swatches"));
       cont.classList.toggle("is-compact", window.matchMedia(cont.classList.contains("catalog-cards-row") ? "(max-width: 699px)" : "(max-width: 899px)").matches);
       cards.forEach((c) => {
         const w = c.offsetWidth;
@@ -1096,7 +1109,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (cambio) aplicar();
       });
       ro.observe(cont); cont.querySelectorAll(".product-card").forEach((c) => ro.observe(c));
-    } else window.addEventListener("resize", aplicar);
+      cont.__ajustar = () => { cont.querySelectorAll(".product-card").forEach((c) => ro.observe(c)); aplicar(); }; // tras sumar cards
+    } else { window.addEventListener("resize", aplicar); cont.__ajustar = aplicar; }
   }
 
   const catalogRow = document.querySelector(".catalog-cards-row");
@@ -1265,7 +1279,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (catalogGrid && typeof CATALOGO_DESTACADO !== "undefined") {
     // El carrusel del Home usa SOLO CATALOGO_DESTACADO; la grilla del catálogo suma los accesorios.
     const productos = [...CATALOGO_DESTACADO, ...expandirAccesorios()];
-    catalogGrid.innerHTML = productos.map((p, i) => renderProductCard(p, i < 4, i === 0)).join("");
+    // Paginado: se muestran 12 y «Ver más» suma de a 12. Filtros y buscador trabajan sobre la lista completa (datos) y luego se pagina.
+    const PAGINA = 12;
+    const hayPromo = (p) => { const pr = typeof promosDe === "function" ? promosDe(p)[0] : null; return !!(pr && (pr.etiqueta || (pr.regalos || []).length)); };
+    catalogGrid.dataset.promos = productos.some(hayPromo) ? "1" : "0";
+    catalogGrid.dataset.swatches = productos.some((p) => (p.colores || []).length > 1) ? "1" : "0";
     ajustarListado(catalogGrid);
 
     /* Filtros 100% client-side (solo esconden/muestran las .product-card ya renderizadas):
@@ -1323,6 +1341,28 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    let filtrados = productos, mostrados = 0;
+    const busqueda = new Map(productos.map((p) => [p, normalizar([p.nombre, p.subcategoria || "", p.variante || "", esUsado(p) ? "usado" : ""].join(" "))]));
+    const moreWrap = document.querySelector(".catalog-more-wrap");
+    const moreBtn = document.querySelector(".catalog-more");
+    const moreStatus = document.querySelector(".catalog-more-status");
+    const pintarTarjetas = (desde, hasta) => {
+      catalogGrid.insertAdjacentHTML("beforeend", filtrados.slice(desde, hasta).map((p, i) => renderProductCard(p, desde + i < 4, desde + i === 0)).join(""));
+      if (catalogGrid.__ajustar) catalogGrid.__ajustar();
+    };
+    const pintarMas = () => {
+      const faltan = filtrados.length - mostrados;
+      if (moreWrap) moreWrap.hidden = faltan <= 0;
+      if (moreBtn) moreBtn.textContent = "Ver más (" + faltan + " restantes)";
+      if (moreStatus) moreStatus.textContent = filtrados.length ? "Mostrando " + mostrados + " de " + filtrados.length + (filtrados.length === 1 ? " producto" : " productos") : "";
+    };
+    if (moreBtn) moreBtn.addEventListener("click", () => {
+      const antes = mostrados;
+      mostrados = Math.min(mostrados + PAGINA, filtrados.length);
+      pintarTarjetas(antes, mostrados);
+      pintarMas();
+      if (moreWrap.hidden) { const nueva = catalogGrid.children[antes]; const op = nueva && nueva.querySelector(".product-card-open"); if (op) op.focus({ preventScroll: true }); } // el botón desaparece: el foco pasa a la primera card nueva
+    });
     const applyCatalogFilter = () => {
       const esAccesorios = activeCat === "Accesorios", esIphone = activeCat === "iPhone";
       if (subTabs) subTabs.hidden = !esAccesorios;
@@ -1330,16 +1370,20 @@ document.addEventListener("DOMContentLoaded", () => {
       if (subRow) subRow.hidden = !(esAccesorios || esIphone);
       const terminos = normalizar(filterSearch ? filterSearch.value.trim() : "").split(/\s+/).filter(Boolean);
       if (searchClear) searchClear.hidden = !(filterSearch && filterSearch.value);
-      let visible = 0;
-      catalogGrid.querySelectorAll(".product-card").forEach((card) => {
-        const okCat = activeCat === "all" || card.dataset.categoria === activeCat;
-        const okSub = !esAccesorios || activeSub === "all" || card.dataset.subcategoria === activeSub;
-        const okQuery = terminos.every((t) => card.dataset.busqueda.includes(t));
-        const okCond = !esIphone || activeCond === "all" || card.dataset.condicion === activeCond;
-        const show = okCat && okSub && okQuery && okCond;
-        card.style.display = show ? "" : "none";
-        if (show) visible++;
+      filtrados = productos.filter((p) => {
+        const okCat = activeCat === "all" || p.categoria === activeCat;
+        const okSub = !esAccesorios || activeSub === "all" || p.subcategoria === activeSub;
+        const okQuery = terminos.every((t) => busqueda.get(p).includes(t));
+        const okCond = !esIphone || activeCond === "all" || (esUsado(p) ? "usado" : "nuevo") === activeCond;
+        return okCat && okSub && okQuery && okCond;
       });
+      const visible = filtrados.length;
+      mostrados = Math.min(PAGINA, visible);
+      // un re-render descarta cualquier regalo abierto: se limpia el estado del contenedor
+      catalogGrid.classList.remove("is-gift-open"); delete catalogGrid.dataset.giftAbiertas;
+      catalogGrid.replaceChildren();
+      pintarTarjetas(0, mostrados);
+      pintarMas();
       if (countEl) countEl.textContent = visible + (visible === 1 ? " producto" : " productos");
       if (emptyEl) emptyEl.hidden = visible > 0;
       if (emptyBtn && visible === 0 && typeof SITE_CONFIG !== "undefined") {
@@ -2097,5 +2141,18 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("visibilitychange", () => { if (!document.hidden) actualizar(); });
   }
   try { initHorarios(); } catch (e) { /* mejora secundaria: un error aquí no corta el resto */ }
+
+  /* Foto opcional del hero (assets/images/hero-product.png): si carga, el hero pasa a dos columnas; si no existe, se quita.
+     Va con listeners (la CSP no permite onload/onerror en línea). El evento puede haber pasado antes de que corra este script. */
+  try {
+    const heroImg = document.querySelector(".hero-product-img");
+    if (heroImg) {
+      const ok = () => { const h = heroImg.closest(".hero"); if (h) h.classList.add("has-product"); };
+      const mal = () => heroImg.remove();
+      heroImg.addEventListener("load", ok, { once: true });
+      heroImg.addEventListener("error", mal, { once: true });
+      if (heroImg.complete) { if (heroImg.naturalWidth > 0) ok(); else mal(); }
+    }
+  } catch (e) { /* mejora secundaria */ }
 
 });

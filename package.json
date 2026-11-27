@@ -1,0 +1,13 @@
+{
+  "name": "tecnolab-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sitio est\u00e1tico (HTML/CSS/JS vanilla) en Vercel. El \u00fanico paso previo es minificar: npm run build.",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "version": "node scripts/subir-version.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

@@ -86,7 +86,7 @@
     tarjeta.innerHTML =
       '<button type="button" class="promo-cerrar" aria-label="Cerrar promoción"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>' +
       '<div class="promo-cuerpo">' +
-      (img ? '<div class="promo-thumb"' + st() + '><img src="' + esc(img.src) + '" alt="' + esc(img.alt) + '" width="96" height="96"></div>' : "") +
+      (img ? '<div class="promo-thumb"' + st() + '><img src="' + esc(img.src) + '" alt="' + esc(img.alt) + '" width="96" height="96" decoding="async"></div>' : "") +
       '<div class="promo-info">' +
       '<h2 id="promo-titulo" class="promo-titulo"' + st() + ">" + esc(promo.titulo || "") + "</h2>" +
       (promo.texto ? '<p class="promo-texto"' + st() + ">" + esc(promo.texto) + "</p>" : "") + "</div></div>" +

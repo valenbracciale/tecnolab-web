@@ -4,6 +4,6 @@
 (function () {
   if (!matchMedia("(hover: hover) and (pointer: fine)").matches || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   var me = document.currentScript, q = me && me.src.indexOf("?") > -1 ? me.src.slice(me.src.indexOf("?")) : "";
-  function cargar() { var s = document.createElement("script"); s.src = "js/hero-glass.js" + q; document.body.appendChild(s); }
+  function cargar() { var s = document.createElement("script"); s.src = "js/hero-glass.min.js" + q; document.body.appendChild(s); }
   if (document.readyState === "complete") cargar(); else addEventListener("load", cargar);
 })();

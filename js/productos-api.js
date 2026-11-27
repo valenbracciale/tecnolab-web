@@ -40,6 +40,11 @@
     const equipos = [], accesorios = [];
     filas.forEach((r) => {
       if (!r || !r.id || !r.nombre) return;
+      // disponible = false → el producto es un BORRADOR y no se muestra en el sitio público (home, catálogo, pedido).
+      // El panel admin NO pasa por acá (admin.js lee la tabla por su cuenta): sigue listando todo, con su etiqueta.
+      // Hoy ningún producto tiene disponible = false (60 filas revisadas), así que no hay «Sin stock» que se pierda.
+      // Si algún día se quiere «Sin stock» visible, usar otra señal o ocultar solo con disponible === false Y precio_num null.
+      if (r.disponible === false) return;
       const colores = Array.isArray(r.colores) ? r.colores : [];
       if (r.categoria === "Accesorios") {
         const urls = urlsDe(r.fotos);

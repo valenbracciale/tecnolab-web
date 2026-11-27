@@ -147,7 +147,7 @@
     const quitar = (n) => '<button type="button" class="pedido-quitar" data-a="x"' + k + ' aria-label="Quitar ' + esc(n) + ' del pedido">' + SVG_X + "</button>";
     if (!p) return '<li class="pedido-item is-no"><div class="pedido-item-info"><p class="pedido-item-nombre">Ya no disponible</p></div>' + quitar("producto") + "</li>";
     const img = (p.colores || [])[it.c] || (p.colores || [])[0], pr = precioDe(p), v = TL.variante(p, it.c), u = P.usado(p);
-    return '<li class="pedido-item"><div class="pedido-thumb">' + (img ? '<img src="' + esc(RAIZ + img.imagen) + '" alt="" width="56" height="56">' : SVG_BOLSA) + "</div>" +
+    return '<li class="pedido-item"><div class="pedido-thumb">' + (img ? '<img src="' + esc(RAIZ + img.imagen) + '" alt="" width="56" height="56" loading="lazy" decoding="async">' : SVG_BOLSA) + "</div>" +
       '<div class="pedido-item-info"><p class="pedido-item-nombre">' + esc(p.nombre) + "</p>" + (v ? '<p class="pedido-item-var">' + esc(v) + "</p>" : "") +
       (u ? '<span class="pedido-tag">' + esc(condicion(p)) + "</span>" : "") +
       (pideModelo(p) ? '<label class="pedido-campo" for="pm-' + i + '">Modelo de tu iPhone <span aria-hidden="true">*</span></label><input id="pm-' + i + '" class="pedido-input pedido-modelo"' + k + ' maxlength="40" placeholder="Ej: iPhone 15 Pro" value="' + esc(it.m) + '" required aria-describedby="pedido-aviso" autocomplete="off">' : "") +

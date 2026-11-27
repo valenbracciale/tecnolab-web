@@ -10,3 +10,6 @@ scripts/node_modules/
 
 # Secretos locales (service key de Supabase, etc.)
 .env*
+
+# Dependencias de la raíz (esbuild) y archivos de trabajo
+node_modules/
