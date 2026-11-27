@@ -3,12 +3,12 @@
  * Minifica CSS y JS con esbuild. Los archivos fuente (css/*.css, js/*.js) NO se tocan: se editan como siempre.
  * Genera, al lado de cada uno, la versión .min (css/style.min.css, js/main.min.js, ...), que son las que cargan los HTML.
  *
- *   npm run build        → regenera todos los .min
+ *   npm run minificar        → regenera todos los .min
  *
  * Cada archivo se minifica por separado (sin agrupar ni cambiar el orden de carga de los <script defer>): los nombres
  * globales que se comparten entre scripts (CATALOGO_DESTACADO, SITE_CONFIG, ...) quedan intactos.
  * Los .min se versionan en el repo porque Vercel publica lo que hay, sin paso de build.
- * Después de cambiar un fuente: npm run build y node scripts/subir-version.js.
+ * Después de cambiar un fuente: npm run minificar y node scripts/subir-version.js.
  */
 const fs = require('fs');
 const path = require('path');

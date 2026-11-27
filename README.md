@@ -1,12 +1,12 @@
 # Tecnolab — sitio web
 
-Sitio estático (HTML/CSS/JS vanilla) desplegado en Vercel. **Sin build en el deploy**: lo que está en el repo es lo que se publica. Los archivos fuente (`css/style.css`, `js/*.js`) se editan a mano; los `.min` que cargan los HTML se generan con `npm run build` y también se versionan.
+Sitio estático (HTML/CSS/JS vanilla) desplegado en Vercel. **Sin build en el deploy**: lo que está en el repo es lo que se publica. Los archivos fuente (`css/style.css`, `js/*.js`) se editan a mano; los `.min` que cargan los HTML se generan con `npm run minificar` y también se versionan.
 
 ## Estructura
 
 ```
 index.html  catalogo.html  service.html  plan-canje.html  nosotros.html  404.html
-css/style.css            Todo el CSS (variables de marca al principio). style.min.css = versión minificada (npm run build).
+css/style.css            Todo el CSS (variables de marca al principio). style.min.css = versión minificada (npm run minificar).
 js/main.js               Toda la interacción (menú, catálogo, carrusel, calculadora, opiniones, horarios…).
 js/hero-glass.js         Lente de cristal del logo del hero (WebGL). Solo se descarga con mouse fino (ver index.html).
 js/glass-button.js       Vidrio líquido del botón «Ver catálogo» del hero (solo index.html; filtro propio #lg-refract-btn).
@@ -25,7 +25,7 @@ vercel.json  robots.txt  sitemap.xml
 
 1. **WhatsApp**: `whatsappNumber` en `js/config.js` (formato internacional, sin `+`). Los `href` de respaldo de los HTML llevan el mismo número.
 2. **Dominio**: `siteUrl` en `js/config.js` y el mismo dominio en `canonical` / `og:url` de cada HTML, en `sitemap.xml` y en `robots.txt`.
-3. Si cambió algún CSS o JS: **`npm run build`** (regenera los `.min`) y **subir `?v=`** (ver abajo).
+3. Si cambió algún CSS o JS: **`npm run minificar`** (regenera los `.min`) y **subir `?v=`** (ver abajo).
 4. Correr las pruebas (ver abajo).
 
 ## Fondo de las secciones oscuras (`.bg-post`)
@@ -69,16 +69,16 @@ Los horarios vienen de Google Maps: actualizar a mano si cambian.
 **Imágenes** — `assets/*` se sirve con `Cache-Control: immutable` por un año (`vercel.json`): si se reemplaza una imagen,
 **cambiarle el nombre** (y la referencia). Para convertir fotos nuevas: `cd scripts && npm install && node optimize-images.js`.
 
-## Minificado: `npm run build`
+## Minificado: `npm run minificar`
 
 Los HTML cargan `css/style.min.css` y `js/*.min.js`. Se generan desde los fuente con esbuild (los fuente no cambian):
 
 ```bash
 npm install        # una sola vez (esbuild)
-npm run build      # regenera css/*.min.css y js/*.min.js (scripts/build.js)
+npm run minificar      # regenera css/*.min.css y js/*.min.js (scripts/build.js)
 ```
 
-- **Editá siempre el fuente** (`css/style.css`, `js/main.js`, …), nunca el `.min`. Si no corrés `npm run build`, el sitio sigue sirviendo el `.min` viejo.
+- **Editá siempre el fuente** (`css/style.css`, `js/main.js`, …), nunca el `.min`. Si no corrés `npm run minificar`, el sitio sigue sirviendo el `.min` viejo.
 - Cada archivo se minifica por separado, sin agruparlos: se conserva el orden de los `<script defer>` y los nombres globales entre scripts.
 - `js/products-data.js` y demás archivos de datos también tienen su `.min`: si los regenerás (scripts/cargar-datos.md), corré el build.
 
@@ -89,7 +89,7 @@ npm run build      # regenera css/*.min.css y js/*.min.js (scripts/build.js)
 Todos los `<link>` y `<script>` de los HTML llevan `?v=N` (también el loader de `hero-glass.min.js` en `index.html`):
 
 ```bash
-npm run build                        # primero los .min
+npm run minificar                        # primero los .min
 node scripts/subir-version.js        # suma 1 en todos los HTML
 node scripts/subir-version.js --ver  # muestra el valor actual y avisa si hay valores distintos
 ```
